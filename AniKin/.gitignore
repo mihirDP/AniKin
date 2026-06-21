@@ -1,0 +1,14 @@
+# AniKin
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.vscode/
+.idea/
+*.egg-info/
+dist/
+build/
+*.egg
+.env
+.DS_Store
+Thumbs.db
