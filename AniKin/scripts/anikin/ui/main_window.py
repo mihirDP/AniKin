@@ -13,6 +13,8 @@ Architecture notes:
   "name is not unique" error
 - All tool callbacks are connected here — the window is the "wiring" layer
   between UI widgets and tool logic
+- v0.2.0: Icon-only toolbar with color-coded category grouping.
+  Section labels removed per UIUX 2.0 Icon Language Guide.
 """
 
 import maya.cmds as cmds
@@ -22,7 +24,7 @@ from anikin.core.qt_compat import (
 )
 from anikin.ui.theme import STYLESHEET
 from anikin.ui.widgets import (
-    SectionSeparator, SectionLabel, ToolButton, TweenSlider
+    SectionSeparator, ToolButton, TweenSlider
 )
 
 # Tool imports
@@ -36,6 +38,8 @@ from anikin.tools import channels
 from anikin.tools import smooth
 from anikin.tools import motion_trail
 from anikin.tools import ghosting
+from anikin.tools import pose
+from anikin.tools import key_nav
 from anikin.ui import selection_sets_panel
 from anikin.ui import settings_panel
 from anikin.ui import hotkey_panel
@@ -78,7 +82,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         # Inner horizontal layout — all tools sit here
         self.toolbar_layout = QtWidgets.QHBoxLayout(self.toolbar_frame)
         self.toolbar_layout.setContentsMargins(6, 3, 6, 3)
-        self.toolbar_layout.setSpacing(4)
+        self.toolbar_layout.setSpacing(3)
 
         # Populate toolbar dynamically
         self.rebuild_toolbar()
@@ -142,54 +146,88 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     # ── Section Builder Helpers ───────────────────────────────
 
     def _add_transform_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Transform"))
+        # Reset transform (first so it's the "undo" position)
         self.toolbar_layout.addWidget(ToolButton(
-            "Align", "Align selected objects to the last selected\n(Translate + Rotate)",
+            "reset", "Reset all transforms to default (0 / scale 1)",
+            callback=pose.reset_transform
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "align_all", "Align selected → last (Translate + Rotate)",
             callback=lambda: align.execute(translate=True, rotate=True)
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "AlignT", "Align Translation only",
+            "align_translate", "Align Translation only",
             callback=lambda: align.execute(translate=True, rotate=False)
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "AlignR", "Align Rotation only",
+            "align_rotate", "Align Rotation only",
             callback=lambda: align.execute(translate=False, rotate=True)
+        ))
+        # Pose tools (copy/paste/mirror)
+        self.toolbar_layout.addWidget(ToolButton(
+            "copy_pose", "Copy Pose to clipboard",
+            callback=pose.copy_pose
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "paste_pose", "Paste Pose from clipboard",
+            callback=pose.paste_pose
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "mirror_pose", "Mirror Pose (negate TX/TZ/RY)",
+            callback=pose.mirror_pose
         ))
 
     def _add_tangents_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Tangents"))
-        for ttype, tip in [
-            ("auto", "Set tangent to Auto"),
-            ("flat", "Set tangent to Flat (holds)"),
-            ("linear", "Set tangent to Linear"),
-            ("step", "Set tangent to Stepped (pose-to-pose)"),
-            ("spline", "Set tangent to Spline"),
+        for ttype, icon, tip in [
+            ("auto",   "auto",   "Auto tangent"),
+            ("flat",   "flat",   "Flat tangent (hold)"),
+            ("linear", "linear", "Linear tangent"),
+            ("step",   "step",   "Stepped tangent (pose-to-pose)"),
+            ("spline", "spline", "Spline tangent"),
         ]:
             self.toolbar_layout.addWidget(ToolButton(
-                ttype.capitalize(), tip,
+                icon, tip,
                 callback=lambda t=ttype: tangents.set_tangent(t)
             ))
 
     def _add_timing_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Timing"))
+        # Key navigation: prev/next key, first/last key
         self.toolbar_layout.addWidget(ToolButton(
-            "◀", "Nudge keyframes 1 frame left",
+            "first_key", "Jump to first keyframe",
+            callback=key_nav.goto_first_key
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "prev_key", "Jump to previous keyframe",
+            callback=key_nav.goto_prev_key
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "next_key", "Jump to next keyframe",
+            callback=key_nav.goto_next_key
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "last_key", "Jump to last keyframe",
+            callback=key_nav.goto_last_key
+        ))
+        # Nudge keys
+        self.toolbar_layout.addWidget(ToolButton(
+            "nudge_left", "Nudge keys 1 frame earlier",
             callback=lambda: nudge.execute(-1)
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "▶", "Nudge keyframes 1 frame right",
+            "nudge_right", "Nudge keys 1 frame later",
             callback=lambda: nudge.execute(1)
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "◀◀", "Nudge keyframes 5 frames left",
+            "nudge_left_fast", "Nudge keys 5 frames earlier",
             callback=lambda: nudge.execute(-5)
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "▶▶", "Nudge keyframes 5 frames right",
+            "nudge_right_fast", "Nudge keys 5 frames later",
             callback=lambda: nudge.execute(5)
         ))
+        # Anim offset
         self.toolbar_layout.addWidget(ToolButton(
-            "Offset", "Stagger keys across selection by 2 frames\n(Select 2+ animated objects)",
+            "offset", "Stagger keys across selection (+2 frames each)",
             callback=lambda: anim_offset.execute(offset_frames=2)
         ))
 
@@ -199,51 +237,47 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.toolbar_layout.addWidget(self.tween_slider)
 
     def _add_workflow_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Workflow"))
         self.toolbar_layout.addWidget(ToolButton(
-            "Bake→Loc", "Smart Bake: Bake selected object's world-space\nmotion to a locator",
+            "bake_to_locator", "Smart Bake: Bake world-space motion → locator",
             callback=smart_bake.bake_to_locator
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "Loc→Obj", "Smart Bake Back: Select target then locator,\nbake locator motion onto target",
+            "bake_from_locator", "Smart Bake: Paste locator motion → object",
             callback=smart_bake.bake_from_locator
         ))
 
     def _add_channels_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Channels"))
         self.toolbar_layout.addWidget(ToolButton(
-            "🔒", "Lock highlighted channels\n(or all keyable if none highlighted)",
+            "lock", "Lock channels",
             callback=channels.lock_channels
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "🔓", "Unlock highlighted channels",
+            "unlock", "Unlock channels",
             callback=channels.unlock_channels
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "Key", "Set keyframe on highlighted channels",
+            "key", "Set keyframe on channels",
             callback=channels.key_channels,
             accent=True
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "DelKey", "Delete keyframe at current time\non highlighted channels",
+            "delkey", "Delete keyframe at current time",
             callback=channels.delete_keys
         ))
 
     def _add_curves_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Curves"))
         self.toolbar_layout.addWidget(ToolButton(
-            "Euler", "Fix rotation gimbal flips (Euler Filter)",
+            "euler", "Euler Filter — fix rotation flips",
             callback=smooth.euler_filter
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "Smooth", "Smooth animation curves (reduce noise)",
+            "smooth", "Smooth animation curves",
             callback=lambda: smooth.smooth_curves(strength=0.5, iterations=1)
         ))
 
     def _add_vis_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Vis"))
         trail_btn = ToolButton(
-            "Trail", "Toggle Motion Trail for selected object\n(Right-click for options)",
+            "trail", "Toggle Motion Trail\n(Right-click for options)",
             callback=motion_trail.toggle_motion_trail
         )
         trail_btn.set_context_menu([
@@ -254,7 +288,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.toolbar_layout.addWidget(trail_btn)
 
         ghost_btn = ToolButton(
-            "Ghost", "Toggle Ghosting for selected object\n(Right-click for options)",
+            "ghost", "Toggle Ghosting\n(Right-click for options)",
             callback=ghosting.toggle_ghosting
         )
         ghost_btn.set_context_menu([
@@ -266,21 +300,19 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
 
     def _add_sets_section(self):
         self.toolbar_layout.addWidget(ToolButton(
-            "Sel Sets", "Open Selection Sets panel\n(Save/recall named selection groups)",
+            "selection_sets", "Selection Sets panel",
             callback=selection_sets_panel.show_panel,
             accent=True
         ))
 
     def _add_setup_section(self):
-        self.toolbar_layout.addWidget(SectionLabel("Setup"))
-        
         self.toolbar_layout.addWidget(ToolButton(
-            "Hotkeys", "Open Hotkey Manager\n(Bind custom keyboard shortcuts to AniKin actions)",
+            "hotkeys", "Hotkey Manager",
             callback=hotkey_panel.show_panel
         ))
 
         settings_btn = ToolButton(
-            "⚙", "Open Settings & Preferences\n(Customize Layout, Motion Trails, and Ghosting)",
+            "settings", "Settings & Preferences\n(Layout, Trails, Ghosting)",
             callback=lambda: settings_panel.show_panel(active_tab=0, on_apply_callback=self.rebuild_toolbar)
         )
         self.toolbar_layout.addWidget(settings_btn)

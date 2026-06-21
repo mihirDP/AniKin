@@ -8,7 +8,7 @@ Each tool is an independent, loadable component that registers itself
 into the main panel via the module loader interface.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Mihir Patil"
 __license__ = "GPL-3.0"
 

@@ -19,76 +19,52 @@ class SectionSeparator(QtWidgets.QFrame):
         self.setFixedWidth(2)
 
 
-class SectionLabel(QtWidgets.QLabel):
-    """A tiny uppercase header label for toolbar sections."""
-
-    def __init__(self, text, parent=None):
-        super(SectionLabel, self).__init__(text.upper(), parent)
-        self.setProperty("header", True)
-        self.setAlignment(QtCore.Qt.AlignCenter)
-
-
 class ToolButton(QtWidgets.QPushButton):
     """
-    A toolbar button with tooltip.
+    An icon-first toolbar button.
+
+    In v0.2.0, the label directly corresponds to the SVG filename in the
+    icons/ directory (e.g., label="align_all" loads "align_all.svg").
+    If no icon is found, the label text is shown as a fallback.
 
     Args:
-        label: Button text.
+        label: Icon filename stem (e.g., "align_all") or display text fallback.
         tooltip: Tooltip shown on hover.
         callback: Function called on click.
         accent: If True, uses accent styling.
     """
 
+    # Calculate icons dir once at class level
+    _ICONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
+
     def __init__(self, label, tooltip="", callback=None, accent=False,
                  parent=None):
-        super(ToolButton, self).__init__(label, parent)
+        super(ToolButton, self).__init__(parent)
+
         if tooltip:
             self.setToolTip(tooltip)
         if callback:
             self.clicked.connect(callback)
         if accent:
             self.setProperty("accent", True)
-        
-        # Try to load icon dynamically
-        icon_name = label.lower().replace(" ", "_").replace("◀", "left").replace("▶", "right").replace("🔒", "lock").replace("🔓", "unlock").replace("⚙", "settings")
-        icon_map = {
-            "align": "align_all",
-            "alignt": "align_translate",
-            "alignr": "align_rotate",
-            "left": "nudge_left",
-            "right": "nudge_right",
-            "leftleft": "nudge_left_fast",
-            "rightright": "nudge_right_fast",
-            "lock": "lock",
-            "unlock": "unlock",
-            "settings": "settings",
-            "sel_sets": "selection_sets",
-            "bake→loc": "bake_to_locator",
-            "loc→obj": "bake_from_locator"
-        }
-        icon_file = icon_map.get(icon_name, icon_name)
-        
-        # Calculate icons dir relative to this file
-        # this file is at scripts/anikin/ui/widgets.py
-        # icons are at scripts/anikin/icons/
-        icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
-        icon_path_png = os.path.join(icons_dir, icon_file + ".png")
-        icon_path_svg = os.path.join(icons_dir, icon_file + ".svg")
-        
+
+        # Try to load icon by label name directly
         icon_found = False
-        if os.path.exists(icon_path_svg):
-            self.setIcon(QtGui.QIcon(icon_path_svg))
-            icon_found = True
-        elif os.path.exists(icon_path_png):
-            self.setIcon(QtGui.QIcon(icon_path_png))
-            icon_found = True
-            
+        for ext in (".svg", ".png"):
+            icon_path = os.path.join(self._ICONS_DIR, label + ext)
+            if os.path.exists(icon_path):
+                self.setIcon(QtGui.QIcon(icon_path))
+                icon_found = True
+                break
+
         if icon_found:
-            self.setIconSize(QtCore.QSize(16, 16))
-            self.setText("") # Hide text if icon exists
-            
-        # Compact sizing for toolbar
-        self.setMinimumWidth(28)
+            self.setIconSize(QtCore.QSize(20, 20))
+            self.setText("")  # Hide text — icon only
+            self.setFixedSize(30, 30)
+        else:
+            # Fallback: display the label text
+            self.setText(label)
+            self.setMinimumWidth(28)
 
         # Context menu support
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -130,10 +106,20 @@ class TweenSlider(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # Label
-        self.label = QtWidgets.QLabel("Tween")
-        self.label.setProperty("header", True)
-        layout.addWidget(self.label)
+        # Tween icon (instead of text label)
+        icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
+        tween_icon_path = os.path.join(icons_dir, "tween.svg")
+        if os.path.exists(tween_icon_path):
+            icon_label = QtWidgets.QLabel()
+            icon_label.setPixmap(QtGui.QIcon(tween_icon_path).pixmap(QtCore.QSize(18, 18)))
+            icon_label.setFixedSize(22, 22)
+            icon_label.setAlignment(QtCore.Qt.AlignCenter)
+            icon_label.setToolTip("Tween Slider")
+            layout.addWidget(icon_label)
+        else:
+            self.label = QtWidgets.QLabel("Tween")
+            self.label.setProperty("header", True)
+            layout.addWidget(self.label)
 
         # The slider: internal range 0-200 → mapped to -0.5 to 1.5
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
