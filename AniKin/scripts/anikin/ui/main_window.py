@@ -1,8 +1,8 @@
-"""
+﻿"""
 main_window.py
 AniKin Main Dockable Window.
 
-This is the primary UI — a horizontal toolbar that docks to the bottom
+This is the primary UI â€” a horizontal toolbar that docks to the bottom
 of Maya's viewport (above the timeline), similar in layout to professional
 animator toolbelts.
 
@@ -11,7 +11,7 @@ Architecture notes:
 - Global reference (_INSTANCE) prevents Python GC from destroying the UI
 - Workspace control names are carefully managed to avoid Maya's notorious
   "name is not unique" error
-- All tool callbacks are connected here — the window is the "wiring" layer
+- All tool callbacks are connected here â€” the window is the "wiring" layer
   between UI widgets and tool logic
 - v0.2.0: Icon-only toolbar with color-coded category grouping.
   Section labels removed per UIUX 2.0 Icon Language Guide.
@@ -28,27 +28,27 @@ from anikin.ui.widgets import (
 )
 
 # Tool imports
-from anikin.tools import align
-from anikin.tools import tween
-from anikin.tools import anim_offset
-from anikin.tools import tangents
-from anikin.tools import smart_bake
-from anikin.tools import nudge
-from anikin.tools import channels
-from anikin.tools import smooth
-from anikin.tools import motion_trail
-from anikin.tools import ghosting
-from anikin.tools import pose
-from anikin.tools import key_nav
+from anikin import AniAlign
+from anikin import AniTween
+from anikin import AniOffset
+from anikin import AniTangents
+from anikin import AniBake
+from anikin import AniNudge
+from anikin import AniChannels
+from anikin import AniSmooth
+from anikin import AniMotion
+from anikin import AniGhost
+from anikin import AniMirror
+from anikin import AniKeyNav
 from anikin.ui import selection_sets_panel
 from anikin.ui import settings_panel
 from anikin.ui import hotkey_panel
 from anikin.core import settings
 
 
-# ──────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Window class
-# ──────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     """Main AniKin dockable toolbar window."""
@@ -66,11 +66,11 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self._build_ui()
         self.setStyleSheet(STYLESHEET)
 
-    # ── UI Construction ───────────────────────────────────────
+    # â”€â”€ UI Construction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _build_ui(self):
         """Setup the outer structures and prepare the layout."""
-        # Outer wrapper — QVBoxLayout holds a QFrame that enforces min height
+        # Outer wrapper â€” QVBoxLayout holds a QFrame that enforces min height
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
@@ -79,7 +79,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.toolbar_frame.setMinimumHeight(40)
         outer.addWidget(self.toolbar_frame)
 
-        # Inner horizontal layout — all tools sit here
+        # Inner horizontal layout â€” all tools sit here
         self.toolbar_layout = QtWidgets.QHBoxLayout(self.toolbar_frame)
         self.toolbar_layout.setContentsMargins(6, 3, 6, 3)
         self.toolbar_layout.setSpacing(3)
@@ -143,38 +143,38 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         # Re-add stretch at the end
         self.toolbar_layout.addStretch()
 
-    # ── Section Builder Helpers ───────────────────────────────
+    # â”€â”€ Section Builder Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _add_transform_section(self):
         # Reset transform (first so it's the "undo" position)
         self.toolbar_layout.addWidget(ToolButton(
             "reset", "Reset all transforms to default (0 / scale 1)",
-            callback=pose.reset_transform
+            callback=AniMirror.reset_transform
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "align_all", "Align selected → last (Translate + Rotate)",
-            callback=lambda: align.execute(translate=True, rotate=True)
+            "align_all", "Align selected â†’ last (Translate + Rotate)",
+            callback=lambda: AniAlign.execute(translate=True, rotate=True)
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "align_translate", "Align Translation only",
-            callback=lambda: align.execute(translate=True, rotate=False)
+            callback=lambda: AniAlign.execute(translate=True, rotate=False)
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "align_rotate", "Align Rotation only",
-            callback=lambda: align.execute(translate=False, rotate=True)
+            callback=lambda: AniAlign.execute(translate=False, rotate=True)
         ))
         # Pose tools (copy/paste/mirror)
         self.toolbar_layout.addWidget(ToolButton(
             "copy_pose", "Copy Pose to clipboard",
-            callback=pose.copy_pose
+            callback=AniMirror.copy_pose
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "paste_pose", "Paste Pose from clipboard",
-            callback=pose.paste_pose
+            callback=AniMirror.paste_pose
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "mirror_pose", "Mirror Pose (negate TX/TZ/RY)",
-            callback=pose.mirror_pose
+            callback=AniMirror.mirror_pose
         ))
 
     def _add_tangents_section(self):
@@ -187,48 +187,48 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ]:
             self.toolbar_layout.addWidget(ToolButton(
                 icon, tip,
-                callback=lambda t=ttype: tangents.set_tangent(t)
+                callback=lambda t=ttype: AniTangents.set_tangent(t)
             ))
 
     def _add_timing_section(self):
         # Key navigation: prev/next key, first/last key
         self.toolbar_layout.addWidget(ToolButton(
             "first_key", "Jump to first keyframe",
-            callback=key_nav.goto_first_key
+            callback=AniKeyNav.goto_first_key
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "prev_key", "Jump to previous keyframe",
-            callback=key_nav.goto_prev_key
+            callback=AniKeyNav.goto_prev_key
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "next_key", "Jump to next keyframe",
-            callback=key_nav.goto_next_key
+            callback=AniKeyNav.goto_next_key
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "last_key", "Jump to last keyframe",
-            callback=key_nav.goto_last_key
+            callback=AniKeyNav.goto_last_key
         ))
         # Nudge keys
         self.toolbar_layout.addWidget(ToolButton(
             "nudge_left", "Nudge keys 1 frame earlier",
-            callback=lambda: nudge.execute(-1)
+            callback=lambda: AniNudge.execute(-1)
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "nudge_right", "Nudge keys 1 frame later",
-            callback=lambda: nudge.execute(1)
+            callback=lambda: AniNudge.execute(1)
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "nudge_left_fast", "Nudge keys 5 frames earlier",
-            callback=lambda: nudge.execute(-5)
+            callback=lambda: AniNudge.execute(-5)
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "nudge_right_fast", "Nudge keys 5 frames later",
-            callback=lambda: nudge.execute(5)
+            callback=lambda: AniNudge.execute(5)
         ))
         # Anim offset
         self.toolbar_layout.addWidget(ToolButton(
             "offset", "Stagger keys across selection (+2 frames each)",
-            callback=lambda: anim_offset.execute(offset_frames=2)
+            callback=lambda: AniOffset.execute(offset_frames=2)
         ))
 
     def _add_tween_section(self):
@@ -238,50 +238,50 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
 
     def _add_workflow_section(self):
         self.toolbar_layout.addWidget(ToolButton(
-            "bake_to_locator", "Smart Bake: Bake world-space motion → locator",
-            callback=smart_bake.bake_to_locator
+            "bake_to_locator", "Smart Bake: Bake world-space motion â†’ locator",
+            callback=AniBake.bake_to_locator
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "bake_from_locator", "Smart Bake: Paste locator motion → object",
-            callback=smart_bake.bake_from_locator
+            "bake_from_locator", "Smart Bake: Paste locator motion â†’ object",
+            callback=AniBake.bake_from_locator
         ))
 
     def _add_channels_section(self):
         self.toolbar_layout.addWidget(ToolButton(
             "lock", "Lock channels",
-            callback=channels.lock_channels
+            callback=AniChannels.lock_channels
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "unlock", "Unlock channels",
-            callback=channels.unlock_channels
+            callback=AniChannels.unlock_channels
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "key", "Set keyframe on channels",
-            callback=channels.key_channels,
+            callback=AniChannels.key_channels,
             accent=True
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "delkey", "Delete keyframe at current time",
-            callback=channels.delete_keys
+            callback=AniChannels.delete_keys
         ))
 
     def _add_curves_section(self):
         self.toolbar_layout.addWidget(ToolButton(
-            "euler", "Euler Filter — fix rotation flips",
-            callback=smooth.euler_filter
+            "euler", "Euler Filter â€” fix rotation flips",
+            callback=AniSmooth.euler_filter
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "smooth", "Smooth animation curves",
-            callback=lambda: smooth.smooth_curves(strength=0.5, iterations=1)
+            callback=lambda: AniSmooth.smooth_curves(strength=0.5, iterations=1)
         ))
 
     def _add_vis_section(self):
         trail_btn = ToolButton(
             "trail", "Toggle Motion Trail\n(Right-click for options)",
-            callback=motion_trail.toggle_motion_trail
+            callback=AniMotion.toggle_motion_trail
         )
         trail_btn.set_context_menu([
-            ("Clear All Motion Trails", motion_trail.clear_all),
+            ("Clear All Motion Trails", AniMotion.clear_all),
             (None, None),
             ("Configure Motion Trail...", lambda: settings_panel.show_panel(active_tab=1, on_apply_callback=self.rebuild_toolbar))
         ])
@@ -289,12 +289,12 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
 
         ghost_btn = ToolButton(
             "ghost", "Toggle Ghosting\n(Right-click for options)",
-            callback=ghosting.toggle_ghosting
+            callback=AniGhost.toggle_ghosting
         )
         ghost_btn.set_context_menu([
-            ("Clear All Ghosting", ghosting.clear_all),
+            ("Clear All Ghosting", AniGhost.clear_all),
             (None, None),
-            ("Configure Ghosting...", lambda: settings_panel.show_panel(active_tab=2, on_apply_callback=self.rebuild_toolbar))
+            ("Configure AniGhost...", lambda: settings_panel.show_panel(active_tab=2, on_apply_callback=self.rebuild_toolbar))
         ])
         self.toolbar_layout.addWidget(ghost_btn)
 
@@ -317,16 +317,16 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         )
         self.toolbar_layout.addWidget(settings_btn)
 
-    # ── Tween callback ────────────────────────────────────────
+    # â”€â”€ Tween callback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _on_tween(self, bias):
         """Called as the tween slider is dragged."""
-        tween.apply_tween(bias)
+        AniTween.apply_tween(bias)
 
 
-# ──────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Launch / cleanup
-# ──────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 # Global reference prevents Python GC from destroying the widget
 _INSTANCE = None
@@ -376,11 +376,12 @@ def show_window():
 
     # Load and register user hotkeys
     try:
-        from anikin.tools import hotkeys
-        hotkeys.load_hotkeys()
+        from anikin import AniHotkeys
+        AniHotkeys.load_hotkeys()
     except Exception as e:
         cmds.warning("AniKin: Error loading hotkeys: {}".format(e))
 
     print("[AniKin] Toolbar launched. v{}".format(
         __import__("anikin").__version__
     ))
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 widgets.py
 Reusable UI widgets for AniKin.
 
@@ -59,7 +59,7 @@ class ToolButton(QtWidgets.QPushButton):
 
         if icon_found:
             self.setIconSize(QtCore.QSize(20, 20))
-            self.setText("")  # Hide text — icon only
+            self.setText("")  # Hide text â€” icon only
             self.setFixedSize(30, 30)
         else:
             # Fallback: display the label text
@@ -108,7 +108,7 @@ class TweenSlider(QtWidgets.QWidget):
 
         # Tween icon (instead of text label)
         icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
-        tween_icon_path = os.path.join(icons_dir, "tween.svg")
+        tween_icon_path = os.path.join(icons_dir, "AniTween.svg")
         if os.path.exists(tween_icon_path):
             icon_label = QtWidgets.QLabel()
             icon_label.setPixmap(QtGui.QIcon(tween_icon_path).pixmap(QtCore.QSize(18, 18)))
@@ -121,7 +121,7 @@ class TweenSlider(QtWidgets.QWidget):
             self.label.setProperty("header", True)
             layout.addWidget(self.label)
 
-        # The slider: internal range 0-200 → mapped to -0.5 to 1.5
+        # The slider: internal range 0-200 â†’ mapped to -0.5 to 1.5
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.slider.setRange(0, 200)
         self.slider.setValue(100)  # 0.5 = midpoint
@@ -145,7 +145,7 @@ class TweenSlider(QtWidgets.QWidget):
 
     def _on_slider_changed(self, raw_value):
         """Map slider int (0-200) to bias float (-0.5 to 1.5)."""
-        bias = (raw_value - 50) / 100.0  # 0→-0.5, 100→0.5, 200→1.5
+        bias = (raw_value - 50) / 100.0  # 0â†’-0.5, 100â†’0.5, 200â†’1.5
         percent = int(bias * 100)
         self.value_label.setText("{}%".format(percent))
         self.value_changed.emit(bias)
@@ -159,3 +159,4 @@ class TweenSlider(QtWidgets.QWidget):
         """Return the current bias value."""
         raw = self.slider.value()
         return (raw - 50) / 100.0
+

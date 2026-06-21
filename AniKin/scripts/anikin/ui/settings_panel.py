@@ -9,7 +9,7 @@ Provides:
 import maya.cmds as cmds
 from anikin.core.qt_compat import QtWidgets, QtCore, get_maya_main_window
 from anikin.ui.theme import STYLESHEET
-from anikin.tools import ghosting, motion_trail
+from anikin import AniGhost, motion_trail
 from anikin.core import settings
 
 
@@ -18,7 +18,7 @@ class SettingsPanel(QtWidgets.QDialog):
 
     def __init__(self, parent=None, active_tab=0, on_apply_callback=None):
         super(SettingsPanel, self).__init__(parent or get_maya_main_window())
-        self.setWindowTitle("AniKin — Settings & Preferences")
+        self.setWindowTitle("AniKin â€” Settings & Preferences")
         self.setObjectName("AniKinSettingsPanel")
         self.setMinimumSize(360, 300)
         self.setStyleSheet(STYLESHEET)
@@ -37,25 +37,29 @@ class SettingsPanel(QtWidgets.QDialog):
         self.tabs = QtWidgets.QTabWidget()
         layout.addWidget(self.tabs)
 
-        # ── Tab 1: Layout ──────────────────────────────────
+        # â”€â”€ Tab 1: Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.layout_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.layout_tab, "Toolbar Layout")
         self._build_layout_ui()
 
-        # ── Tab 2: Motion Trail ────────────────────────────
+        # â”€â”€ Tab 2: Motion Trail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.trail_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.trail_tab, "Motion Trail")
         self._build_trail_ui()
 
-        # ── Tab 3: Ghosting ────────────────────────────────
+        # â”€â”€ Tab 3: Ghosting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.ghost_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.ghost_tab, "Ghosting")
         self._build_ghost_ui()
 
+        self.about_tab = QtWidgets.QWidget()
+        self.tabs.addTab(self.about_tab, "About")
+        self._build_about_ui()
+
         # Set active tab
         self.tabs.setCurrentIndex(active_tab)
 
-        # ── Action Buttons ─────────────────────────────────
+        # â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         btn_layout = QtWidgets.QHBoxLayout()
         btn_layout.addStretch()
         
@@ -89,13 +93,13 @@ class SettingsPanel(QtWidgets.QDialog):
         btn_container = QtWidgets.QVBoxLayout()
         btn_container.addStretch()
         
-        up_btn = QtWidgets.QPushButton("▲")
+        up_btn = QtWidgets.QPushButton("â–²")
         up_btn.setToolTip("Move Section Up")
         up_btn.setFixedWidth(30)
         up_btn.clicked.connect(self._move_up)
         btn_container.addWidget(up_btn)
 
-        down_btn = QtWidgets.QPushButton("▼")
+        down_btn = QtWidgets.QPushButton("â–¼")
         down_btn.setToolTip("Move Section Down")
         down_btn.setFixedWidth(30)
         down_btn.clicked.connect(self._move_down)
@@ -142,6 +146,35 @@ class SettingsPanel(QtWidgets.QDialog):
         self.ghost_step.setRange(1, 20)
         self.ghost_step.setValue(1)
         layout.addRow("Frame Step:", self.ghost_step)
+
+    def _build_about_ui(self):
+        layout = QtWidgets.QVBoxLayout(self.about_tab)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
+
+        title = QtWidgets.QLabel("<b>AniKin Toolkit v0.2</b>")
+        title.setStyleSheet("font-size: 14px;")
+        layout.addWidget(title)
+        
+        desc = QtWidgets.QLabel("The intelligent animation analysis and productivity toolkit for Maya.")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        
+        layout.addSpacing(10)
+        
+        credits = QtWidgets.QLabel(
+            "<b>Open Source Credits & Attribution:</b><br><br>"
+            "AniKin is licensed under the GPLv3.<br><br>"
+            "<b>Key Machine:</b><br>"
+            "The AniTween module (and concepts in AniOffset & AniSets) were inspired by and "
+            "adapted from the <i>Key Machine</i> toolset, which is also licensed "
+            "under the GPLv3. We extend our deep gratitude to the Key Machine project for establishing "
+            "these excellent open-source animation workflows."
+        )
+        credits.setWordWrap(True)
+        credits.setStyleSheet("color: #b0b0b0;")
+        layout.addWidget(credits)
+        layout.addStretch()
 
     def _move_up(self):
         row = self.sections_list.currentRow()
@@ -199,7 +232,7 @@ class SettingsPanel(QtWidgets.QDialog):
         settings.save_settings(cfg)
 
         # 3. Apply Ghosting Settings
-        ghosting.configure_ghosting(
+        AniGhost.configure_ghosting(
             pre_frames=self.pre_frames.value(),
             post_frames=self.post_frames.value(),
             step=self.ghost_step.value()
@@ -218,7 +251,7 @@ class SettingsPanel(QtWidgets.QDialog):
         # 5. Update any active trail nodes
         sel = cmds.ls(selection=True) or []
         for obj in sel:
-            trail, handle = motion_trail.get_motion_trail_for_object(obj)
+            trail, handle = AniMotion.get_motion_trail_for_object(obj)
             if handle:
                 shapes = cmds.listRelatives(handle, shapes=True) or []
                 if shapes:
@@ -240,7 +273,7 @@ class SettingsPanel(QtWidgets.QDialog):
         )
 
 
-# ── Global instance ────────────────────────────────────────────
+# â”€â”€ Global instance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _PANEL_INSTANCE = None
 
 
@@ -254,3 +287,4 @@ def show_panel(active_tab=0, on_apply_callback=None):
             pass
     _PANEL_INSTANCE = SettingsPanel(active_tab=active_tab, on_apply_callback=on_apply_callback)
     _PANEL_INSTANCE.show()
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 selection_sets_panel.py
 A popup panel for managing AniKin selection sets.
 
@@ -16,7 +16,7 @@ import maya.cmds as cmds
 
 from anikin.core.qt_compat import QtWidgets, QtCore, get_maya_main_window
 from anikin.ui.theme import STYLESHEET
-from anikin.tools import selection_sets
+from anikin import AniSets
 
 
 class SelectionSetsPanel(QtWidgets.QDialog):
@@ -24,7 +24,7 @@ class SelectionSetsPanel(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super(SelectionSetsPanel, self).__init__(parent or get_maya_main_window())
-        self.setWindowTitle("AniKin — Selection Sets")
+        self.setWindowTitle("AniKin â€” Selection Sets")
         self.setObjectName("AniKinSelSetsPanel")
         self.setMinimumSize(280, 300)
         self.setStyleSheet(STYLESHEET)
@@ -36,7 +36,7 @@ class SelectionSetsPanel(QtWidgets.QDialog):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
 
-        # ── Save row ───────────────────────────────────────
+        # â”€â”€ Save row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         save_row = QtWidgets.QHBoxLayout()
         self.name_input = QtWidgets.QLineEdit()
         self.name_input.setPlaceholderText("Set name...")
@@ -51,7 +51,7 @@ class SelectionSetsPanel(QtWidgets.QDialog):
 
         layout.addLayout(save_row)
 
-        # ── Sets list ──────────────────────────────────────
+        # â”€â”€ Sets list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.sets_list = QtWidgets.QListWidget()
         self.sets_list.setToolTip(
             "Click to select set  |  Double-click to select and close"
@@ -60,7 +60,7 @@ class SelectionSetsPanel(QtWidgets.QDialog):
         self.sets_list.itemDoubleClicked.connect(self._recall_and_close)
         layout.addWidget(self.sets_list)
 
-        # ── Button row ─────────────────────────────────────
+        # â”€â”€ Button row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         btn_row = QtWidgets.QHBoxLayout()
 
         add_btn = QtWidgets.QPushButton("Add to Sel")
@@ -82,7 +82,7 @@ class SelectionSetsPanel(QtWidgets.QDialog):
     def _refresh_list(self):
         """Reload the list from the scene's storage node."""
         self.sets_list.clear()
-        for name in selection_sets.list_sets():
+        for name in AniSets.list_sets():
             self.sets_list.addItem(name)
 
     def _save_set(self):
@@ -93,34 +93,34 @@ class SelectionSetsPanel(QtWidgets.QDialog):
             return
         # Sanitize: only alphanumeric + underscores
         safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in name)
-        selection_sets.save_set(safe_name)
+        AniSets.save_set(safe_name)
         self.name_input.clear()
         self._refresh_list()
 
     def _recall_set(self, item):
         """Select the objects in the clicked set."""
-        selection_sets.recall_set(item.text())
+        AniSets.recall_set(item.text())
 
     def _recall_and_close(self, item):
         """Select and close the dialog."""
-        selection_sets.recall_set(item.text())
+        AniSets.recall_set(item.text())
         self.close()
 
     def _add_to_selection(self):
         """Add set members to current selection."""
         item = self.sets_list.currentItem()
         if item:
-            selection_sets.recall_set(item.text(), add_to_selection=True)
+            AniSets.recall_set(item.text(), add_to_selection=True)
 
     def _delete_set(self):
         """Delete the currently selected set."""
         item = self.sets_list.currentItem()
         if item:
-            selection_sets.delete_set(item.text())
+            AniSets.delete_set(item.text())
             self._refresh_list()
 
 
-# ── Global instance ────────────────────────────────────────────
+# â”€â”€ Global instance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _PANEL_INSTANCE = None
 
 
@@ -134,3 +134,4 @@ def show_panel():
             pass
     _PANEL_INSTANCE = SelectionSetsPanel()
     _PANEL_INSTANCE.show()
+

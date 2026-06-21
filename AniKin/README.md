@@ -1,13 +1,16 @@
-# AniKin — Open-Source Animator's Toolkit for Maya
+# AniKin — The Intelligent Animation Analysis and Productivity Toolkit
 
-> **Status:** Early Development (v0.1.0-skeleton)
+> **Status:** Beta (v0.2.0)
 > **License:** GNU GPLv3
 
-AniKin is a free, open-source, GPLv3-licensed productivity toolkit for Maya animators. It bundles high-leverage tools — tweening, anim offset, tangent shortcuts, smart bake, selection sets, and more — into a single dockable panel.
+AniKin (Animation + Kinematics) is a free, open-source productivity toolkit for Maya animators. It unifies daily workflow tools with kinematics-driven diagnostics into a single dockable panel.
 
-## Disclosure
+## Open Source Credits & Attribution
 
-Inspired by the genre of animator productivity toolbelts (Tween Machine, Studio Library, aTools, etc.). **Not affiliated with, derived from, or a replacement for any specific commercial product.** All code is original, written clean-room.
+AniKin is licensed under the GPLv3. 
+
+**Key Machine:**
+The `AniTween` module (along with concepts in `AniOffset` and `AniSets`) were inspired by and adapted from the excellent *Key Machine* toolset by its original developer. Key Machine is also licensed under the GPLv3. We extend our deep gratitude to the Key Machine project for establishing these open-source animation workflows.
 
 ## Installation
 
@@ -34,18 +37,20 @@ Inspired by the genre of animator productivity toolbelts (Tween Machine, Studio 
 - Windows / macOS / Linux
 - PySide2 (Maya 2022–2024) / PySide6 (Maya 2025+) — auto-detected
 
-## Features
+## Modules (v0.2)
 
-- **Dockable Dark Theme UI** — Native Maya docking with premium vector icons and a reorderable toolbar structure.
-- **Interactive Hotkey Manager** — Record and assign Maya shortcuts directly inside the plugin.
-- **Motion Trails & Ghosting** — Sleek toggles wrapping Maya's native viewport visualization.
-- **Selection Sets** — Save and recall custom selection sets per rig.
-- **Tween/Breakdown Slider** — Interpolate between neighboring keys with overshoot.
-- **Anim Offset** — Stagger keyframes across selections.
-- **Tangent Shortcuts** — One-click Auto/Flat/Linear/Step/Spline tangents.
-- **Smart Bake** — Bake to world-space locator and back.
-- **Nudge Keys** — Shift keyframes left/right by N frames.
-- **Channel Utilities** — Lock/unlock, key/unkey channel toggles.
+AniKin is built as a platform of modules. Current features include:
+
+- **AniTween** — Interpolate between neighboring keys with overshoot, ease-in, and ease-out.
+- **AniOffset** — Stagger keyframes across selections.
+- **AniTangents** — One-click Auto/Flat/Linear/Step/Spline tangents.
+- **AniBake** — Smart bake to world-space locator and back.
+- **AniSets** — Save and recall custom selection sets per rig.
+- **AniMotion & AniGhost** — Sleek toggles wrapping Maya's native viewport motion trails and ghosting.
+- **AniNudge** — Shift keyframes left/right by N frames.
+- **AniChannels** — Lock/unlock, key/unkey channel toggles.
+- **AniAlign** — Align objects in translate and rotate space.
+- **Interactive UI Shell** — Dockable Dark Theme UI with premium vector icons, reorderable toolbar, and Hotkey Manager.
 
 ## Contributing
 

@@ -1,4 +1,4 @@
-"""
+﻿"""
 hotkey_panel.py
 Hotkey configuration panel for AniKin.
 
@@ -8,7 +8,7 @@ validate shortcuts, and save them.
 
 from anikin.core.qt_compat import QtWidgets, QtCore, get_maya_main_window
 from anikin.ui.theme import STYLESHEET
-from anikin.tools import hotkeys
+from anikin import AniHotkeys
 
 
 class KeyCaptureDialog(QtWidgets.QDialog):
@@ -128,12 +128,12 @@ class HotkeyPanel(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super(HotkeyPanel, self).__init__(parent or get_maya_main_window())
-        self.setWindowTitle("AniKin — Hotkey Manager")
+        self.setWindowTitle("AniKin â€” Hotkey Manager")
         self.setObjectName("AniKinHotkeyPanel")
         self.setMinimumSize(450, 400)
         self.setStyleSheet(STYLESHEET)
 
-        self.current_mappings = hotkeys.load_hotkeys()
+        self.current_mappings = AniHotkeys.load_hotkeys()
         
         self._build_ui()
         self._populate_table()
@@ -191,8 +191,8 @@ class HotkeyPanel(QtWidgets.QDialog):
 
     def _populate_table(self):
         """Fill table with bindable tools."""
-        self.table.setRowCount(len(hotkeys.BINDABLE_TOOLS))
-        for row, tool in enumerate(hotkeys.BINDABLE_TOOLS):
+        self.table.setRowCount(len(AniHotkeys.BINDABLE_TOOLS))
+        for row, tool in enumerate(AniHotkeys.BINDABLE_TOOLS):
             # Category
             cat_item = QtWidgets.QTableWidgetItem(tool["category"])
             cat_item.setTextAlignment(QtCore.Qt.AlignCenter)
@@ -215,7 +215,7 @@ class HotkeyPanel(QtWidgets.QDialog):
         row = self.table.currentRow()
         if row < 0:
             return None, None
-        tool = hotkeys.BINDABLE_TOOLS[row]
+        tool = AniHotkeys.BINDABLE_TOOLS[row]
         return row, tool
 
     def _on_table_double_clicked(self, index):
@@ -238,7 +238,7 @@ class HotkeyPanel(QtWidgets.QDialog):
                     break
             
             if duplicate_id:
-                dup_tool = next((t for t in hotkeys.BINDABLE_TOOLS if t["id"] == duplicate_id), None)
+                dup_tool = next((t for t in AniHotkeys.BINDABLE_TOOLS if t["id"] == duplicate_id), None)
                 dup_name = dup_tool["name"] if dup_tool else duplicate_id
                 
                 # Warn user
@@ -267,24 +267,24 @@ class HotkeyPanel(QtWidgets.QDialog):
 
     def _on_save_clicked(self):
         # 1. Unbind removed/changed hotkeys
-        old_mappings = hotkeys.load_hotkeys()
+        old_mappings = AniHotkeys.load_hotkeys()
         for tool_id, old_hk in old_mappings.items():
             new_hk = self.current_mappings.get(tool_id, "None")
             if old_hk != "None" and old_hk != new_hk:
-                hotkeys.remove_hotkey(tool_id, old_hk)
+                AniHotkeys.remove_hotkey(tool_id, old_hk)
 
         # 2. Bind new hotkeys
         for tool_id, new_hk in self.current_mappings.items():
             old_hk = old_mappings.get(tool_id, "None")
             if new_hk != "None" and new_hk != old_hk:
-                hotkeys.apply_hotkey(tool_id, new_hk)
+                AniHotkeys.apply_hotkey(tool_id, new_hk)
 
         # 3. Persist to file
-        hotkeys.save_hotkeys(self.current_mappings)
+        AniHotkeys.save_hotkeys(self.current_mappings)
         self.close()
 
 
-# ── Global instance ────────────────────────────────────────────
+# â”€â”€ Global instance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _PANEL_INSTANCE = None
 
 
@@ -298,3 +298,4 @@ def show_panel():
             pass
     _PANEL_INSTANCE = HotkeyPanel()
     _PANEL_INSTANCE.show()
+

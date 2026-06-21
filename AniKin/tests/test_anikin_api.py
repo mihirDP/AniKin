@@ -1,4 +1,4 @@
-"""
+﻿"""
 test_anikin_api.py
 Automated test suite for AniKin logic API using maya standalone.
 
@@ -30,7 +30,7 @@ scripts_dir = os.path.join(repo_dir, "scripts")
 if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
-from anikin.tools import align, nudge, anim_offset, channels, smart_bake, tangents
+from anikin import AniAlign, nudge, anim_offset, channels, smart_bake, tangents
 
 class TestAniKinAPI(unittest.TestCase):
     
@@ -49,7 +49,7 @@ class TestAniKinAPI(unittest.TestCase):
         cmds.select([obj1, obj2], replace=True)
         
         # Execute align translation only
-        align.execute(translate=True, rotate=False)
+        AniAlign.execute(translate=True, rotate=False)
         
         # Verify
         pos = cmds.getAttr(obj1 + ".translate")[0]
@@ -65,7 +65,7 @@ class TestAniKinAPI(unittest.TestCase):
         cmds.setAttr(obj2 + ".rotate", 45, 30, 60)
         
         cmds.select([obj1, obj2], replace=True)
-        align.execute(translate=False, rotate=True)
+        AniAlign.execute(translate=False, rotate=True)
         
         rot = cmds.getAttr(obj1 + ".rotate")[0]
         self.assertAlmostEqual(rot[0], 45.0, places=4)
@@ -82,7 +82,7 @@ class TestAniKinAPI(unittest.TestCase):
         
         # Select keyframes and nudge +5
         cmds.selectKey(obj, time=(10, 20))
-        nudge.execute(5)
+        AniNudge.execute(5)
         
         # Verify new times are 15 and 25
         times = cmds.keyframe(obj, attribute='translateX', query=True, timeChange=True)
@@ -97,7 +97,7 @@ class TestAniKinAPI(unittest.TestCase):
         cmds.setKeyframe(obj2, attribute='translateX', time=10, value=0)
         
         cmds.select([obj1, obj2], replace=True)
-        anim_offset.execute(offset_frames=2)
+        AniOffset.execute(offset_frames=2)
         
         # obj1 should be unchanged (base object), obj2 should be offset by +2
         times1 = cmds.keyframe(obj1, attribute='translateX', query=True, timeChange=True)
@@ -111,11 +111,11 @@ class TestAniKinAPI(unittest.TestCase):
         obj = cmds.polyCube(name="cube1")[0]
         cmds.select(obj)
         
-        channels.lock_channels() # Should lock all keyable since none highlighted
+        AniChannels.lock_channels() # Should lock all keyable since none highlighted
         
         self.assertTrue(cmds.getAttr(obj + ".tx", lock=True))
         
-        channels.unlock_channels()
+        AniChannels.unlock_channels()
         self.assertFalse(cmds.getAttr(obj + ".tx", lock=True))
 
     def tearDown(self):
@@ -133,3 +133,4 @@ if __name__ == '__main__':
         maya.standalone.uninitialize()
     except Exception:
         pass
+
