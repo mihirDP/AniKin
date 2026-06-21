@@ -40,10 +40,21 @@ from anikin import AniMotion
 from anikin import AniGhost
 from anikin import AniMirror
 from anikin import AniKeyNav
+from anikin import AniBookmarks
+from anikin import AniWave
+from anikin import AniNoise
+from anikin import AniCheck
+from anikin import AniSnap
 from anikin.ui import selection_sets_panel
+from anikin.ui import bookmarks_panel
+from anikin.ui import check_panel
+from anikin.ui import snap_panel
+from anikin.ui import wave_panel
+from anikin.ui import noise_panel
 from anikin.ui import settings_panel
 from anikin.ui import hotkey_panel
 from anikin.core import settings
+
 
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -137,6 +148,12 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
                 self._add_vis_section()
             elif sec == "Sets":
                 self._add_sets_section()
+            elif sec == "Bookmarks":
+                self._add_bookmarks_section()
+            elif sec == "Poses":
+                self._add_poses_section()
+            elif sec == "Diagnostics":
+                self._add_diagnostics_section()
             elif sec == "Setup":
                 self._add_setup_section()
 
@@ -246,15 +263,36 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.ease_slider.value_changed.connect(lambda b: self._on_tween(b, "ease_in_out"))
         self.toolbar_layout.addWidget(self.ease_slider)
 
+        smart_key_btn = ToolButton(
+            "wand", "Smart Key — set keys only on already-animated channels",
+            callback=lambda: AniTween.smart_key("all")
+        )
+        smart_key_btn.set_context_menu([
+            ("Smart Key All", lambda: AniTween.smart_key("all")),
+            ("Smart Key Translate", lambda: AniTween.smart_key("translate")),
+            ("Smart Key Rotate", lambda: AniTween.smart_key("rotate")),
+            ("Smart Key Scale", lambda: AniTween.smart_key("scale")),
+        ])
+        self.toolbar_layout.addWidget(smart_key_btn)
+
     def _add_workflow_section(self):
         self.toolbar_layout.addWidget(ToolButton(
-            "bake_to_locator", "Smart Bake: Bake world-space motion â†’ locator",
+            "bake_to_locator", "Smart Bake: Bake world-space motion → locator",
             callback=AniBake.bake_to_locator
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "bake_from_locator", "Smart Bake: Paste locator motion â†’ object",
+            "bake_from_locator", "Smart Bake: Paste locator motion → object",
             callback=AniBake.bake_from_locator
         ))
+        wave_btn = ToolButton(
+            "wave_sine", "AniWave: Propagate Overlap / Follow-Through\n(Right-click for options)",
+            callback=lambda: AniWave.propagate_wave(),
+            accent=True
+        )
+        wave_btn.set_context_menu([
+            ("Configure AniWave...", wave_panel.show_panel)
+        ])
+        self.toolbar_layout.addWidget(wave_btn)
 
     def _add_channels_section(self):
         self.toolbar_layout.addWidget(ToolButton(
@@ -284,6 +322,15 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "smooth", "Smooth animation curves",
             callback=lambda: AniSmooth.smooth_curves(strength=0.5, iterations=1)
         ))
+        noise_btn = ToolButton(
+            "activity", "AniNoise: Add Organic Micro-Jitter\n(Right-click for options)",
+            callback=lambda: AniNoise.apply_noise(),
+            accent=True
+        )
+        noise_btn.set_context_menu([
+            ("Configure AniNoise...", noise_panel.show_panel)
+        ])
+        self.toolbar_layout.addWidget(noise_btn)
 
     def _add_vis_section(self):
         trail_btn = ToolButton(
@@ -315,6 +362,27 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             accent=True
         ))
 
+    def _add_bookmarks_section(self):
+        self.toolbar_layout.addWidget(ToolButton(
+            "bookmark", "Time Bookmarks panel",
+            callback=bookmarks_panel.show_panel,
+            accent=True
+        ))
+
+    def _add_poses_section(self):
+        self.toolbar_layout.addWidget(ToolButton(
+            "camera", "AniSnap: Visual Pose Library",
+            callback=snap_panel.show_panel,
+            accent=True
+        ))
+
+    def _add_diagnostics_section(self):
+        self.toolbar_layout.addWidget(ToolButton(
+            "stethoscope", "AniCheck: Curve Health Diagnostics",
+            callback=check_panel.show_panel,
+            accent=True
+        ))
+
     def _add_setup_section(self):
         self.toolbar_layout.addWidget(ToolButton(
             "hotkeys", "Hotkey Manager",
@@ -332,17 +400,55 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.toolbar_layout.addWidget(settings_btn)
 
     def _uninstall_plugin(self):
+        import os
         result = cmds.confirmDialog(
             title="Uninstall AniKin",
-            message="Are you sure you want to uninstall AniKin from this session?",
+            message="Are you sure you want to permanently uninstall AniKin?\nThis will remove it from Maya's startup files.",
             button=["Yes", "Cancel"],
             defaultButton="Cancel",
             cancelButton="Cancel",
             dismissString="Cancel"
         )
         if result == "Yes":
-            cmds.evalDeferred("import maya.cmds as cmds; cmds.deleteUI('{}', control=True) if cmds.workspaceControl('{}', exists=True) else None".format(AniKinWindow.WINDOW_NAME, AniKinWindow.WINDOW_NAME))
-            cmds.inViewMessage(amg="AniKin uninstalled from current session.", pos="topCenter", fade=True, fadeStayTime=3000)
+            # 1. Close UI
+            cmds.evalDeferred("import maya.cmds as cmds; cmds.deleteUI('{}', control=True) if cmds.workspaceControl('{}', exists=True) else None".format(self.WINDOW_NAME, self.WINDOW_NAME))
+            
+            # 2. Locate and delete anikin.mod
+            maya_app_dir = os.path.normpath(cmds.internalVar(userAppDir=True))
+            mod_file = os.path.join(maya_app_dir, "modules", "anikin.mod")
+            if os.path.exists(mod_file):
+                try:
+                    os.remove(mod_file)
+                except Exception:
+                    pass
+            
+            # 3. Clean userSetup.py
+            user_setup_path = os.path.join(maya_app_dir, "scripts", "userSetup.py")
+            if os.path.exists(user_setup_path):
+                try:
+                    with open(user_setup_path, "r") as f:
+                        lines = f.readlines()
+                    
+                    new_lines = []
+                    in_block = False
+                    for line in lines:
+                        if "# —— AniKin Startup Launch ——" in line:
+                            in_block = True
+                            continue
+                        if "# ———————————————————————————" in line and in_block:
+                            in_block = False
+                            continue
+                        if not in_block:
+                            new_lines.append(line)
+                            
+                    with open(user_setup_path, "w") as f:
+                        f.writelines(new_lines)
+                except Exception:
+                    pass
+
+            cmds.inViewMessage(amg="AniKin uninstalled successfully.", pos="topCenter", fade=True, fadeStayTime=3000)
+
+
 
     # ── Tween callback ──────────────────────────────────────────
 

@@ -22,6 +22,9 @@ DEFAULT_SECTIONS = [
     "Curves",
     "Vis",
     "Sets",
+    "Poses",
+    "Bookmarks",
+    "Diagnostics",
     "Setup"
 ]
 
@@ -30,7 +33,9 @@ def load_settings():
     """Load settings from JSON config file."""
     default = {
         "section_order": list(DEFAULT_SECTIONS),
-        "visible_sections": list(DEFAULT_SECTIONS)
+        "visible_sections": list(DEFAULT_SECTIONS),
+        "pose_library_roots": [os.path.expanduser("~/maya/anikin_poses")],
+        "debug_mode": False
     }
     
     if not os.path.exists(SETTINGS_FILE):
@@ -43,6 +48,13 @@ def load_settings():
             for key, val in default.items():
                 if key not in data:
                     data[key] = val
+            
+            # Dynamically register any new sections added in updates
+            for sec in DEFAULT_SECTIONS:
+                if sec not in data["section_order"]:
+                    data["section_order"].append(sec)
+                if sec not in data["visible_sections"]:
+                    data["visible_sections"].append(sec)
             return data
     except Exception as e:
         cmds.warning("AniKin: Error loading settings: {}".format(e))

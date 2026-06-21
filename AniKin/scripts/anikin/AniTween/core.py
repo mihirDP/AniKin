@@ -16,6 +16,7 @@ of the selected objects.
 import maya.cmds as cmds
 from anikin.core.undo import UndoChunk
 from anikin.core.selection import get_selected_or_warn
+from anikin.core.log import log_debug
 
 
 def _get_animated_channels(node):
@@ -129,4 +130,74 @@ def apply_tween(bias=0.5, easing="linear"):
                 attr_name = ".".join(parts[1:])
                 cmds.setKeyframe(node_name, attribute=attr_name,
                                  time=current_time, value=tweened)
+
+
+def smart_key(mode="all"):
+    """
+    Set keys on selected objects only on channels that already have animation.
+    
+    Args:
+        mode: "all", "translate", "rotate", "scale"
+    """
+    sel = get_selected_or_warn(min_count=1)
+    if not sel:
+        return
+
+    current_time = cmds.currentTime(query=True)
+    active_layer = cmds.animLayer(query=True, selected=True)
+    layer_kwargs = {}
+    if active_layer:
+        layer_kwargs["animLayer"] = active_layer[0]
+
+    log_debug("AniTween: Smart Key triggered (mode: {})".format(mode))
+    with UndoChunk("AniKin: Smart Key ({})".format(mode)):
+        keyed_count = 0
+        objects_keyed = set()
+        
+        for node in sel:
+            channels = _get_animated_channels(node)
+            filtered_channels = []
+            
+            for plug in channels:
+                parts = plug.split(".")
+                node_name = parts[0]
+                attr_name = ".".join(parts[1:])
+                
+                # Check filter
+                if mode == "translate" and not attr_name.startswith("translate"):
+                    continue
+                elif mode == "rotate" and not attr_name.startswith("rotate"):
+                    continue
+                elif mode == "scale" and not attr_name.startswith("scale"):
+                    continue
+                
+                # Silently skip locked or non-keyable channels
+                if cmds.getAttr(plug, lock=True):
+                    continue
+                if not cmds.getAttr(plug, keyable=True):
+                    continue
+                
+                filtered_channels.append((node_name, attr_name, plug))
+                
+            for node_name, attr_name, plug in filtered_channels:
+                try:
+                    val = cmds.getAttr(plug)
+                    cmds.setKeyframe(node_name, attribute=attr_name,
+                                     time=current_time, value=val, **layer_kwargs)
+                    keyed_count += 1
+                    objects_keyed.add(node_name)
+                except Exception:
+                    pass
+
+    if keyed_count == 0:
+        cmds.warning("Smart Key: No animated/keyable channels matching '{}' found.".format(mode))
+    else:
+        msg = "Smart Key: {} keys set across {} objects".format(keyed_count, len(objects_keyed))
+        cmds.inViewMessage(
+            amg="<hl>AniKin</hl>: {}".format(msg),
+            pos="topCenter", fade=True, fadeStayTime=1500
+        )
+        print("[AniKin] " + msg)
+
+
 

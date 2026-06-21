@@ -1,11 +1,12 @@
 """
 settings_panel.py
-Configuration panel for AniKin layout and visualization.
-
+Configuration panel for AniKin layout, visualization, and general preferences.
 Provides:
-- SettingsPanel dialog containing Layout settings, Motion Trail settings, and Ghosting settings.
+- SettingsPanel dialog containing Layout settings, Motion Trail settings, Ghosting settings,
+  and General & Pose Library path preferences.
 """
 
+import os
 import maya.cmds as cmds
 from anikin.core.qt_compat import QtWidgets, QtCore, get_maya_main_window
 from anikin.ui.theme import STYLESHEET
@@ -18,9 +19,9 @@ class SettingsPanel(QtWidgets.QDialog):
 
     def __init__(self, parent=None, active_tab=0, on_apply_callback=None):
         super(SettingsPanel, self).__init__(parent or get_maya_main_window())
-        self.setWindowTitle("AniKin â€” Settings & Preferences")
+        self.setWindowTitle("AniKin — Settings & Preferences")
         self.setObjectName("AniKinSettingsPanel")
-        self.setMinimumSize(360, 300)
+        self.setMinimumSize(420, 360)
         self.setStyleSheet(STYLESHEET)
         
         self.on_apply_callback = on_apply_callback
@@ -37,21 +38,27 @@ class SettingsPanel(QtWidgets.QDialog):
         self.tabs = QtWidgets.QTabWidget()
         layout.addWidget(self.tabs)
 
-        # â”€â”€ Tab 1: Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # —— Tab 1: Layout —————————————————————————————————
         self.layout_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.layout_tab, "Toolbar Layout")
         self._build_layout_ui()
 
-        # â”€â”€ Tab 2: Motion Trail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # —— Tab 2: General & Poses ——————————————————————————
+        self.general_tab = QtWidgets.QWidget()
+        self.tabs.addTab(self.general_tab, "General & Poses")
+        self._build_general_ui()
+
+        # —— Tab 3: Motion Trail ———————————————————————————
         self.trail_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.trail_tab, "Motion Trail")
         self._build_trail_ui()
 
-        # â”€â”€ Tab 3: Ghosting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # —— Tab 4: Ghosting ———————————————————————————————
         self.ghost_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.ghost_tab, "Ghosting")
         self._build_ghost_ui()
 
+        # —— Tab 5: About —————————————————————————————————
         self.about_tab = QtWidgets.QWidget()
         self.tabs.addTab(self.about_tab, "About")
         self._build_about_ui()
@@ -59,7 +66,7 @@ class SettingsPanel(QtWidgets.QDialog):
         # Set active tab
         self.tabs.setCurrentIndex(active_tab)
 
-        # â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # —— Action Buttons ————————————————————————————————
         btn_layout = QtWidgets.QHBoxLayout()
         btn_layout.addStretch()
         
@@ -93,13 +100,13 @@ class SettingsPanel(QtWidgets.QDialog):
         btn_container = QtWidgets.QVBoxLayout()
         btn_container.addStretch()
         
-        up_btn = QtWidgets.QPushButton("â–²")
+        up_btn = QtWidgets.QPushButton("▲")
         up_btn.setToolTip("Move Section Up")
         up_btn.setFixedWidth(30)
         up_btn.clicked.connect(self._move_up)
         btn_container.addWidget(up_btn)
 
-        down_btn = QtWidgets.QPushButton("â–¼")
+        down_btn = QtWidgets.QPushButton("▼")
         down_btn.setToolTip("Move Section Down")
         down_btn.setFixedWidth(30)
         down_btn.clicked.connect(self._move_down)
@@ -107,6 +114,43 @@ class SettingsPanel(QtWidgets.QDialog):
         
         btn_container.addStretch()
         layout.addLayout(btn_container)
+
+    def _build_general_ui(self):
+        layout = QtWidgets.QVBoxLayout(self.general_tab)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
+
+        # Debug Mode
+        self.debug_chk = QtWidgets.QCheckBox("Enable Debug Mode (Log output to AniKin.log)")
+        self.debug_chk.setToolTip("Saves verbose execution logs to system temp directory.")
+        layout.addWidget(self.debug_chk)
+
+        # Pose Library Roots
+        lbl = QtWidgets.QLabel("<b>Pose Library Paths:</b>")
+        layout.addWidget(lbl)
+
+        h_layout = QtWidgets.QHBoxLayout()
+        self.lib_paths_list = QtWidgets.QListWidget()
+        self.lib_paths_list.setStyleSheet("QListWidget { background-color: #1e1e1e; border: 1px solid #1a1a1a; }")
+        h_layout.addWidget(self.lib_paths_list)
+
+        v_buttons = QtWidgets.QVBoxLayout()
+        v_buttons.addStretch()
+        
+        add_btn = QtWidgets.QPushButton("Add...")
+        add_btn.setToolTip("Add new library root folder")
+        add_btn.clicked.connect(self._add_library_path)
+        v_buttons.addWidget(add_btn)
+
+        remove_btn = QtWidgets.QPushButton("Del")
+        remove_btn.setToolTip("Remove selected library path")
+        remove_btn.clicked.connect(self._remove_library_path)
+        v_buttons.addWidget(remove_btn)
+        
+        v_buttons.addStretch()
+        h_layout.addLayout(v_buttons)
+
+        layout.addLayout(h_layout)
 
     def _build_trail_ui(self):
         layout = QtWidgets.QFormLayout(self.trail_tab)
@@ -152,7 +196,7 @@ class SettingsPanel(QtWidgets.QDialog):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("<b>AniKin Toolkit v0.2</b>")
+        title = QtWidgets.QLabel("<b>AniKin Toolkit v0.3</b>")
         title.setStyleSheet("font-size: 14px;")
         layout.addWidget(title)
         
@@ -190,8 +234,25 @@ class SettingsPanel(QtWidgets.QDialog):
             self.sections_list.insertItem(row + 1, item)
             self.sections_list.setCurrentRow(row + 1)
 
+    def _add_library_path(self):
+        """Browse and add new pose library root."""
+        dir_path = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select Pose Library Root Folder", os.path.expanduser("~")
+        )
+        if dir_path:
+            norm = os.path.abspath(dir_path)
+            # Check for duplicates
+            items = [self.lib_paths_list.item(i).text() for i in range(self.lib_paths_list.count())]
+            if norm not in items:
+                self.lib_paths_list.addItem(norm)
+
+    def _remove_library_path(self):
+        row = self.lib_paths_list.currentRow()
+        if row >= 0:
+            self.lib_paths_list.takeItem(row)
+
     def _load_settings(self):
-        """Populate the layout, trail, and ghost controls from stored configuration."""
+        """Populate controls from stored configuration."""
         cfg = settings.load_settings()
         
         # 1. Populate layout list
@@ -199,12 +260,18 @@ class SettingsPanel(QtWidgets.QDialog):
         for sec in cfg["section_order"]:
             item = QtWidgets.QListWidgetItem(sec)
             item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            
             check_state = QtCore.Qt.Checked if sec in cfg["visible_sections"] else QtCore.Qt.Unchecked
             item.setCheckState(check_state)
             self.sections_list.addItem(item)
 
-        # 2. Query Ghosting settings
+        # 2. General Preferences
+        self.debug_chk.setChecked(cfg.get("debug_mode", False))
+        
+        self.lib_paths_list.clear()
+        for path in cfg.get("pose_library_roots", []):
+            self.lib_paths_list.addItem(path)
+
+        # 3. Query Ghosting settings
         try:
             self.pre_frames.setValue(cmds.ghosting(query=True, preFrames=True) or 5)
             self.post_frames.setValue(cmds.ghosting(query=True, postFrames=True) or 5)
@@ -224,21 +291,27 @@ class SettingsPanel(QtWidgets.QDialog):
             if item.checkState() == QtCore.Qt.Checked:
                 visible.append(name)
 
-        # 2. Save settings
+        # 2. Read general values
+        debug_mode = self.debug_chk.isChecked()
+        lib_roots = [self.lib_paths_list.item(i).text() for i in range(self.lib_paths_list.count())]
+
+        # 3. Save settings
         cfg = {
             "section_order": order,
-            "visible_sections": visible
+            "visible_sections": visible,
+            "pose_library_roots": lib_roots,
+            "debug_mode": debug_mode
         }
         settings.save_settings(cfg)
 
-        # 3. Apply Ghosting Settings
+        # 4. Apply Ghosting Settings
         AniGhost.configure_ghosting(
             pre_frames=self.pre_frames.value(),
             post_frames=self.post_frames.value(),
             step=self.ghost_step.value()
         )
 
-        # 4. Map Trail Color Preset to RGB
+        # 5. Map Trail Color Preset to RGB
         presets = {
             0: (0.0, 0.7, 0.85),  # Teal
             1: (1.0, 0.5, 0.0),   # Orange
@@ -248,7 +321,7 @@ class SettingsPanel(QtWidgets.QDialog):
         }
         rgb = presets.get(self.color_preset.currentIndex(), (0.0, 0.7, 0.85))
 
-        # 5. Update any active trail nodes
+        # 6. Update any active trail nodes
         sel = cmds.ls(selection=True) or []
         for obj in sel:
             trail, handle = AniMotion.get_motion_trail_for_object(obj)
@@ -263,7 +336,7 @@ class SettingsPanel(QtWidgets.QDialog):
                     except Exception:
                         pass
 
-        # 6. Trigger Main UI rebuild
+        # 7. Trigger Main UI rebuild
         if self.on_apply_callback:
             self.on_apply_callback()
             
@@ -273,7 +346,7 @@ class SettingsPanel(QtWidgets.QDialog):
         )
 
 
-# â”€â”€ Global instance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —— Global instance —————————————————————————————————————
 _PANEL_INSTANCE = None
 
 
@@ -287,4 +360,3 @@ def show_panel(active_tab=0, on_apply_callback=None):
             pass
     _PANEL_INSTANCE = SettingsPanel(active_tab=active_tab, on_apply_callback=on_apply_callback)
     _PANEL_INSTANCE.show()
-
