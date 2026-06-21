@@ -1,4 +1,4 @@
-﻿"""
+"""
 test_anikin_api.py
 Automated test suite for AniKin logic API using maya standalone.
 
@@ -30,7 +30,7 @@ scripts_dir = os.path.join(repo_dir, "scripts")
 if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
-from anikin import AniAlign, nudge, anim_offset, channels, smart_bake, tangents
+from anikin import AniAlign, AniNudge, AniOffset, AniChannels, AniBake, AniTangents
 
 class TestAniKinAPI(unittest.TestCase):
     

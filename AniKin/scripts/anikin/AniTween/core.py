@@ -1,4 +1,4 @@
-﻿"""
+"""
 AniTween.py
 Tween/Breakdown Slider â€” interpolates between neighboring keyframes.
 
@@ -63,7 +63,29 @@ def _get_prev_next_keys(attr, current_time):
     return prev, nxt
 
 
-def apply_tween(bias=0.5):
+def _apply_easing(bias, mode="linear"):
+    """Apply easing curve to the bias."""
+    if mode == "linear":
+        return bias
+    
+    # Clamp between 0 and 1 for strict easing, but we allow overshoot
+    # by extending the tangents linearly if needed, or just applying math.
+    if mode == "ease_in":
+        # Accelerate from prev key (t^2)
+        return bias * bias if bias >= 0 else -(-bias * -bias)
+    elif mode == "ease_out":
+        # Decelerate to next key t*(2-t)
+        return bias * (2 - bias)
+    elif mode == "ease_in_out":
+        # Smoothstep
+        t = max(0.0, min(1.0, bias))
+        eased = t * t * (3.0 - 2.0 * t)
+        if bias < 0: return bias # Linear overshoot
+        if bias > 1: return bias
+        return eased
+    return bias
+
+def apply_tween(bias=0.5, easing="linear"):
     """
     Apply tween at the given bias to all animated channels of selected objects.
 
@@ -85,12 +107,20 @@ def apply_tween(bias=0.5):
                 if prev_time is None or next_time is None:
                     continue
 
-                # Get values at prev and next keys
-                prev_val = cmds.getAttr(attr, time=prev_time)
-                next_val = cmds.getAttr(attr, time=next_time)
+                # Get values at prev and next keys using keyframe evaluation (respects layers better)
+                try:
+                    prev_val = cmds.keyframe(attr, time=(prev_time, prev_time), query=True, eval=True)[0]
+                    next_val = cmds.keyframe(attr, time=(next_time, next_time), query=True, eval=True)[0]
+                except (TypeError, IndexError):
+                    # Fallback if evaluation fails
+                    prev_val = cmds.getAttr(attr, time=prev_time)
+                    next_val = cmds.getAttr(attr, time=next_time)
 
-                # Linear interpolation (with overshoot support)
-                tweened = prev_val + (next_val - prev_val) * bias
+                # Apply Easing Math
+                eased_bias = _apply_easing(bias, mode=easing)
+
+                # Interpolation (with overshoot support)
+                tweened = prev_val + (next_val - prev_val) * eased_bias
 
                 # Set the key at current time
                 # Extract node and attribute name from the full plug path

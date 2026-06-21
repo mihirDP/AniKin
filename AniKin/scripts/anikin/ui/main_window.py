@@ -1,4 +1,4 @@
-﻿"""
+"""
 main_window.py
 AniKin Main Dockable Window.
 
@@ -148,7 +148,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     def _add_transform_section(self):
         # Reset transform (first so it's the "undo" position)
         self.toolbar_layout.addWidget(ToolButton(
-            "reset", "Reset all transforms to default (0 / scale 1)",
+            "reset", "Reset Pose (zero out translations/rotations)",
             callback=AniMirror.reset_transform
         ))
         self.toolbar_layout.addWidget(ToolButton(
@@ -191,6 +191,12 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             ))
 
     def _add_timing_section(self):
+        # Play/Pause Animation
+        self.toolbar_layout.addWidget(ToolButton(
+            "play_pause", "Play / Pause Animation",
+            callback=lambda: cmds.play(state=not cmds.play(query=True, state=True))
+        ))
+        
         # Key navigation: prev/next key, first/last key
         self.toolbar_layout.addWidget(ToolButton(
             "first_key", "Jump to first keyframe",
@@ -232,9 +238,13 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ))
 
     def _add_tween_section(self):
-        self.tween_slider = TweenSlider()
-        self.tween_slider.value_changed.connect(self._on_tween)
+        self.tween_slider = TweenSlider(label="TW", tooltip="Tween Slider (Linear Interpolation)")
+        self.tween_slider.value_changed.connect(lambda b: self._on_tween(b, "linear"))
         self.toolbar_layout.addWidget(self.tween_slider)
+
+        self.ease_slider = TweenSlider(label="EA", tooltip="Ease Slider (Ease-In / Ease-Out Interpolation)")
+        self.ease_slider.value_changed.connect(lambda b: self._on_tween(b, "ease_in_out"))
+        self.toolbar_layout.addWidget(self.ease_slider)
 
     def _add_workflow_section(self):
         self.toolbar_layout.addWidget(ToolButton(
@@ -315,18 +325,35 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "settings", "Settings & Preferences\n(Layout, Trails, Ghosting)",
             callback=lambda: settings_panel.show_panel(active_tab=0, on_apply_callback=self.rebuild_toolbar)
         )
+        settings_btn.set_context_menu([
+            ("Refresh Plugin (Reload)", lambda: __import__("anikin").reload_and_launch()),
+            ("Uninstall AniKin", self._uninstall_plugin)
+        ])
         self.toolbar_layout.addWidget(settings_btn)
 
-    # â”€â”€ Tween callback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    def _uninstall_plugin(self):
+        result = cmds.confirmDialog(
+            title="Uninstall AniKin",
+            message="Are you sure you want to uninstall AniKin from this session?",
+            button=["Yes", "Cancel"],
+            defaultButton="Cancel",
+            cancelButton="Cancel",
+            dismissString="Cancel"
+        )
+        if result == "Yes":
+            cmds.evalDeferred("import maya.cmds as cmds; cmds.deleteUI('{}', control=True) if cmds.workspaceControl('{}', exists=True) else None".format(AniKinWindow.WINDOW_NAME, AniKinWindow.WINDOW_NAME))
+            cmds.inViewMessage(amg="AniKin uninstalled from current session.", pos="topCenter", fade=True, fadeStayTime=3000)
 
-    def _on_tween(self, bias):
+    # ── Tween callback ──────────────────────────────────────────
+
+    def _on_tween(self, bias, easing="linear"):
         """Called as the tween slider is dragged."""
-        AniTween.apply_tween(bias)
+        AniTween.apply_tween(bias, easing=easing)
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ──────────────────────────────────────────────────────────────────────────────────
 # Launch / cleanup
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ──────────────────────────────────────────────────────────────────────────────────
 
 # Global reference prevents Python GC from destroying the widget
 _INSTANCE = None

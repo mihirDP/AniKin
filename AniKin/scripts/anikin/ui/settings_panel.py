@@ -9,7 +9,7 @@ Provides:
 import maya.cmds as cmds
 from anikin.core.qt_compat import QtWidgets, QtCore, get_maya_main_window
 from anikin.ui.theme import STYLESHEET
-from anikin import AniGhost, motion_trail
+from anikin import AniGhost, AniMotion
 from anikin.core import settings
 
 

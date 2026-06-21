@@ -1,4 +1,4 @@
-﻿"""
+"""
 widgets.py
 Reusable UI widgets for AniKin.
 
@@ -99,38 +99,28 @@ class TweenSlider(QtWidgets.QWidget):
 
     value_changed = QtCore.Signal(float)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, label="TW", tooltip="Tween Slider", default_val=100):
         super(TweenSlider, self).__init__(parent)
+
+        self.default_val = default_val
 
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # Tween icon (instead of text label)
-        icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
-        tween_icon_path = os.path.join(icons_dir, "AniTween.svg")
-        if os.path.exists(tween_icon_path):
-            icon_label = QtWidgets.QLabel()
-            icon_label.setPixmap(QtGui.QIcon(tween_icon_path).pixmap(QtCore.QSize(18, 18)))
-            icon_label.setFixedSize(22, 22)
-            icon_label.setAlignment(QtCore.Qt.AlignCenter)
-            icon_label.setToolTip("Tween Slider")
-            layout.addWidget(icon_label)
-        else:
-            self.label = QtWidgets.QLabel("Tween")
-            self.label.setProperty("header", True)
-            layout.addWidget(self.label)
+        self.badge = QtWidgets.QLabel(label)
+        self.badge.setProperty("header", True)
+        self.badge.setAlignment(QtCore.Qt.AlignCenter)
+        self.badge.setFixedSize(22, 22)
+        self.badge.setStyleSheet("background-color: #3b3b3b; color: #e0e0e0; border-radius: 4px; font-weight: bold; font-size: 10px;")
+        layout.addWidget(self.badge)
 
-        # The slider: internal range 0-200 â†’ mapped to -0.5 to 1.5
+        # The slider: internal range 0-200 mapped to -0.5 to 1.5
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.slider.setRange(0, 200)
-        self.slider.setValue(100)  # 0.5 = midpoint
-        self.slider.setFixedWidth(140)
-        self.slider.setToolTip(
-            "Tween Slider\n"
-            "0% = Previous key | 100% = Next key\n"
-            "Beyond range for overshoot"
-        )
+        self.slider.setValue(self.default_val)
+        self.slider.setFixedWidth(100)
+        self.slider.setToolTip(tooltip)
         layout.addWidget(self.slider)
 
         # Value display
