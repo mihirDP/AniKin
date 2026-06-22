@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniKin — The Intelligent Animation & Kinematics Toolkit for Maya</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tabler Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <header class="glass-header">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <i class="ti ti-activity logo-icon"></i>
+                <span>Ani<span class="accent-text">Kin</span></span>
+            </a>
+            <nav class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#download">Download</a>
+                <a href="#roadmap">Roadmap</a>
+                <a href="#docs" id="nav-docs-link">Docs</a>
+                <a href="#community">Community</a>
+            </nav>
+            <div class="nav-actions">
+                <a href="https://github.com/mihirDP/AniKin" target="_blank" class="btn btn-icon-only" title="GitHub Repository">
+                    <i class="ti ti-brand-github"></i>
+                </a>
+                <a href="#download" class="btn btn-accent btn-sm">Get AniKin</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main>
+        <!-- Home Section -->
+        <section id="home-view" class="active-view">
+            <!-- Hero Section -->
+            <section class="hero-section">
+                <div class="grid-overlay"></div>
+                <div class="hero-content">
+                    <div class="badge-container">
+                        <span class="hero-badge"><i class="ti ti-rocket"></i> v0.2.0 Beta Out Now</span>
+                    </div>
+                    <h1 class="hero-title">Unify Animation <br>& <span class="gradient-text">Kinematics</span></h1>
+                    <p class="hero-subtitle">
+                        An intelligent, open-source productivity toolkit for Maya. Rebuilding workflow foundations with color-coded layouts, dual interpolation sliders, and high-performance physics-based diagnostic roadmaps.
+                    </p>
+                    <div class="hero-ctas">
+                        <a href="#download" class="btn btn-accent btn-lg"><i class="ti ti-download"></i> Download Free</a>
+                        <a href="#features" class="btn btn-secondary btn-lg">Explore Modules</a>
+                    </div>
+                </div>
+
+                <!-- Interactive Demo Component -->
+                <div class="interactive-preview-container">
+                    <div class="preview-header">
+                        <span class="preview-dot red"></span>
+                        <span class="preview-dot yellow"></span>
+                        <span class="preview-dot green"></span>
+                        <span class="preview-title">Maya Viewport Simulator (AniKin Active)</span>
+                    </div>
+                    <div class="preview-body">
+                        <!-- Canvas / Graphic Display -->
+                        <div class="viewport-canvas">
+                            <div class="viewport-grid"></div>
+                            <!-- Mock Rig / Bone Visual -->
+                            <div class="mock-rig-container">
+                                <div class="bone bone-1"></div>
+                                <div class="bone bone-2"></div>
+                                <div class="target-node"></div>
+                                <div class="ghost-rig pre-ghost"></div>
+                                <div class="ghost-rig post-ghost"></div>
+                            </div>
+                            <!-- Motion Trail representation -->
+                            <div class="svg-trail-container">
+                                <svg width="100%" height="100%">
+                                    <path id="motion-path" d="M 50,180 Q 200,50 350,180 T 650,180" fill="none" stroke="#00bcd4" stroke-width="2" stroke-dasharray="4 4" />
+                                    <!-- key points -->
+                                    <circle cx="50" cy="180" r="5" fill="#ffeb3b" />
+                                    <circle cx="200" cy="80" r="5" fill="#ffeb3b" />
+                                    <circle cx="350" cy="180" r="5" fill="#ffeb3b" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- Mock AniKin Toolbar -->
+                        <div class="mock-toolbar">
+                            <div class="toolbar-group cyan-group">
+                                <button class="tool-btn" title="Reset Pose"><i class="ti ti-refresh"></i></button>
+                                <button class="tool-btn" title="Align All"><i class="ti ti-align-box-center-stretch"></i></button>
+                                <button class="tool-btn" title="Align Translate"><i class="ti ti-arrows-move"></i></button>
+                            </div>
+                            <div class="toolbar-group pink-group">
+                                <button class="tool-btn" title="Copy Pose"><i class="ti ti-copy"></i></button>
+                                <button class="tool-btn" title="Paste Pose"><i class="ti ti-clipboard"></i></button>
+                                <button class="tool-btn" title="Mirror Pose"><i class="ti ti-flip-horizontal"></i></button>
+                            </div>
+                            <div class="toolbar-group yellow-group">
+                                <div class="mock-slider-wrapper">
+                                    <span class="mock-badge">TW</span>
+                                    <input type="range" class="mock-slider" id="demo-tween-slider" min="0" max="100" value="50">
+                                </div>
+                                <div class="mock-slider-wrapper">
+                                    <span class="mock-badge">EA</span>
+                                    <input type="range" class="mock-slider" id="demo-ease-slider" min="0" max="100" value="50">
+                                </div>
+                            </div>
+                            <div class="toolbar-group orange-group">
+                                <button class="tool-btn" title="Auto Tangents"><i class="ti ti-activity"></i></button>
+                                <button class="tool-btn" title="Step Tangents"><i class="ti ti-stairs"></i></button>
+                            </div>
+                            <div class="toolbar-group purple-group">
+                                <button class="tool-btn" id="demo-trail-btn" title="Toggle Motion Trail"><i class="ti ti-vector-bezier"></i></button>
+                                <button class="tool-btn" id="demo-ghost-btn" title="Toggle Ghosting"><i class="ti ti-ghost"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Trust / Open Source Section -->
+            <section class="trust-section">
+                <div class="container">
+                    <div class="trust-grid">
+                        <div class="trust-card">
+                            <i class="ti ti-license"></i>
+                            <h3>GNU GPLv3 Open Source</h3>
+                            <p>Free forever, fully auditable, and transparent. No license checks, no corporate phone-home, no paywalls. Built in the spirit of community growth.</p>
+                        </div>
+                        <div class="trust-card">
+                            <i class="ti ti-cpu"></i>
+                            <h3>Performance Native</h3>
+                            <p>Zero external heavy dependencies. Built to leverage Maya's Python API shims smoothly from version 2022 up to 2027.</p>
+                        </div>
+                        <div class="trust-card">
+                            <i class="ti ti-git-fork"></i>
+                            <h3>Modular Architecture</h3>
+                            <p>Every tool lives as an independent namespace (`AniTween`, `AniOffset`, `AniBake`), designed for pipeline scalability.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features / Modules Showcase -->
+            <section id="features" class="features-section">
+                <div class="container">
+                    <div class="section-header">
+                        <h2 class="section-title">A Unified Platform of <span class="accent-text">Modules</span></h2>
+                        <p class="section-desc">Say goodbye to dozens of legacy script files. AniKin structures your primary animation tasks into standard, loadable modules.</p>
+                    </div>
+
+                    <div class="features-container">
+                        <!-- Module Nav -->
+                        <div class="module-selector">
+                            <button class="module-tab active" data-target="module-tween">
+                                <i class="ti ti-adjustments-horizontal tab-icon yellow"></i>
+                                <span>AniTween</span>
+                            </button>
+                            <button class="module-tab" data-target="module-offset">
+                                <i class="ti ti-layers-intersect tab-icon red"></i>
+                                <span>AniOffset</span>
+                            </button>
+                            <button class="module-tab" data-target="module-bake">
+                                <i class="ti ti-box tab-icon green"></i>
+                                <span>AniBake</span>
+                            </button>
+                            <button class="module-tab" data-target="module-mirror">
+                                <i class="ti ti-copy tab-icon pink"></i>
+                                <span>AniMirror</span>
+                            </button>
+                            <button class="module-tab" data-target="module-vis">
+                                <i class="ti ti-ghost tab-icon purple"></i>
+                                <span>AniGhost & AniMotion</span>
+                            </button>
+                        </div>
+
+                        <!-- Module Detail Display -->
+                        <div class="module-display">
+                            <!-- Tween Detail -->
+                            <div id="module-tween" class="module-detail active">
+                                <div class="detail-content">
+                                    <span class="module-badge yellow-bg">Tweening & breakdowns</span>
+                                    <h3>AniTween</h3>
+                                    <p>Interpolate keys instantly using dedicated linear and easing sliders. Derived from classic Key Machine behaviors, but updated for modern timelines.</p>
+                                    <ul class="detail-list">
+                                        <li><i class="ti ti-circle-check"></i> <strong>Dual Slider Workflows:</strong> Blend linearly with <code>TW</code> or apply easing with <code>EA</code>.</li>
+                                        <li><i class="ti ti-circle-check"></i> <strong>Overshoot Mode:</strong> Drag sliders past 100% or below 0% for quick exaggeration.</li>
+                                        <li><i class="ti ti-circle-check"></i> <strong>Animation Layer Aware:</strong> Works directly on the active layer without altering base curves.</li>
+                                    </ul>
+                                </div>
+                                <div class="detail-graphic">
+                                    <div class="graphic-card">
+                                        <div class="slider-mockup">
+                                            <span class="badge">TW</span>
+                                            <div class="slider-bar"><div class="fill yellow-bg" style="width: 75%"></div><div class="thumb"></div></div>
+                                            <span class="val">75%</span>
+                                        </div>
+                                        <div class="slider-mockup">
+                                            <span class="badge">EA</span>
+                                            <div class="slider-bar"><div class="fill yellow-bg" style="width: 25%"></div><div class="thumb"></div></div>
+                                            <span class="val">25%</span>
+                                        </div>
+                                        <div class="graphic-label">Real-time linear & cubic easing sliders</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Offset Detail -->
+                            <div id="module-offset" class="module-detail">
+                                <div class="detail-content">
+                                    <span class="module-badge red-bg">Timing offsets</span>
+                                    <h3>AniOffset</h3>
+                                    <p>Stagger animation curves across a selection of joints or controls with a single click. Ideal for creating quick secondary actions, overlap, and tail-staggers.</p>
+                                    <ul class="detail-list">
+                                        <li><i class="ti ti-circle-check"></i> <strong>Incremental Offsets:</strong> Staggers curves sequentially based on selection order.</li>
+                                        <li><i class="ti ti-circle-check"></i> <strong>Precise Control:</strong> Configure offsets uniformly or incrementally via quick actions.</li>
+                                    </ul>
+                                </div>
+                                <div class="detail-graphic">
+                                    <div class="graphic-card stagger-card">
+                                        <div class="timeline-row"><div class="keyframe-bar" style="margin-left: 20px"></div></div>
+                                        <div class="timeline-row"><div class="keyframe-bar" style="margin-left: 40px"></div></div>
+                                        <div class="timeline-row"><div class="keyframe-bar" style="margin-left: 60px"></div></div>
+                                        <div class="graphic-label">Auto-staggered timeline tracks</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bake Detail -->
+                            <div id="module-bake" class="module-detail">
+                                <div class="detail-content">
+                                    <span class="module-badge green-bg">Smart Baking</span>
+                                    <h3>AniBake</h3>
+                                    <p>Bake world-space coordinates of an object to a temporary locator, perform edits, and snap it back. Keeps your animation pipeline intact during pivots or space changes.</p>
+                                    <ul class="detail-list">
+                                        <li><i class="ti ti-circle-check"></i> <strong>One-Click Locator Bake:</strong> Automatically generates custom locator and copies translation/rotation.</li>
+                                        <li><i class="ti ti-circle-check"></i> <strong>Perfect Round-trip:</strong> Bake back from locator to object, cleaning up temp constraints automatically.</li>
+                                    </ul>
+                                </div>
+                                <div class="detail-graphic">
+                                    <div class="graphic-card">
+                                        <div class="bake-flow">
+                                            <div class="node-box">Object <i class="ti ti-arrow-right"></i> Locator</div>
+                                            <div class="node-box accent">Transform / Tweak</div>
+                                            <div class="node-box">Locator <i class="ti ti-arrow-right"></i> Object</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Mirror Detail -->
+                            <div id="module-mirror" class="module-detail">
+                                <div class="detail-content">
+                                    <span class="module-badge pink-bg">Pose mirroring</span>
+                                    <h3>AniMirror</h3>
+                                    <p>Copy, paste, and mirror character poses across namespaces. Supports instant pose negating on translations and rotations for rapid cycling.</p>
+                                    <ul class="detail-list">
+                                        <li><i class="ti ti-circle-check"></i> <strong>Axis-Aware Mirroring:</strong> Intelligently handles negation vectors across symmetrical controls.</li>
+                                        <li><i class="ti ti-circle-check"></i> <strong>Pose Clipboard:</strong> Temporary copy cache allowing rapid pasting between meshes.</li>
+                                    </ul>
+                                </div>
+                                <div class="detail-graphic">
+                                    <div class="graphic-card">
+                                        <div class="mirror-mock">
+                                            <div class="half left-pose">R Pose</div>
+                                            <div class="divider"></div>
+                                            <div class="half right-pose">L Pose (Mirrored)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Vis Detail -->
+                            <div id="module-vis" class="module-detail">
+                                <div class="detail-content">
+                                    <span class="module-badge purple-bg">Visualizers</span>
+                                    <h3>AniGhost & AniMotion</h3>
+                                    <p>Native viewport helpers built directly into the toolbar. Draw and track motion paths or ghost rigs without opening heavy Maya menus.</p>
+                                    <ul class="detail-list">
+                                        <li><i class="ti ti-circle-check"></i> <strong>Smart Motion Trails:</strong> Configurable color presets, path thickness, and frame indicators.</li>
+                                        <li><i class="ti ti-circle-check"></i> <strong>Ghosting Toggles:</strong> Quickly display pre- and post-frames step-by-step.</li>
+                                    </ul>
+                                </div>
+                                <div class="detail-graphic">
+                                    <div class="graphic-card">
+                                        <div class="vis-mock">
+                                            <div class="ghost-frame transparent">Pre-Frame</div>
+                                            <div class="ghost-frame current">Current</div>
+                                            <div class="ghost-frame transparent">Post-Frame</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Roadmap Section -->
+            <section id="roadmap" class="roadmap-section">
+                <div class="container">
+                    <div class="section-header">
+                        <h2 class="section-title">The Path to <span class="accent-text">Kinematics Diagnostics</span></h2>
+                        <p class="section-desc">Our release strategy is divided into clean tiers, scaling from foundational tools to fully automated kinetic analysis.</p>
+                    </div>
+
+                    <div class="roadmap-grid">
+                        <div class="roadmap-tier active">
+                            <div class="tier-tag">Now (v0.2.0)</div>
+                            <h3 class="tier-title">Foundational Utilities</h3>
+                            <p>Daily productivity tools, restructured modular namespace, and clean Key Machine integrations.</p>
+                            <ul class="tier-features">
+                                <li><i class="ti ti-circle-check"></i> AniTween Dual Sliders</li>
+                                <li><i class="ti ti-circle-check"></i> AniOffset Timing Shift</li>
+                                <li><i class="ti ti-circle-check"></i> Dynamic Icons & Reordering</li>
+                                <li><i class="ti ti-circle-check"></i> Hotkey Manager</li>
+                            </ul>
+                        </div>
+                        <div class="roadmap-tier">
+                            <div class="tier-tag next">Next (v0.3 / v1.5)</div>
+                            <h3 class="tier-title">Advanced Workflows</h3>
+                            <p>Expanding the visualizer module and scaling capabilities for rig mirroring and asset setups.</p>
+                            <ul class="tier-features">
+                                <li><i class="ti ti-circle"></i> Pose Mirror Refinements</li>
+                                <li><i class="ti ti-circle"></i> Interactive Arc Tweak (Viewport)</li>
+                                <li><i class="ti ti-circle"></i> Smart Bake Refinements</li>
+                                <li><i class="ti ti-circle"></i> Shared Pose Library Support</li>
+                            </ul>
+                        </div>
+                        <div class="roadmap-tier">
+                            <div class="tier-tag vision">Vision (v2.0 / v3.0)</div>
+                            <h3 class="tier-title">Intelligent Diagnostics</h3>
+                            <p>Laying the ground for automated kinematic analysis, centering of mass, and real-time game loops.</p>
+                            <ul class="tier-features">
+                                <li><i class="ti ti-circle"></i> Foot Slide Detector</li>
+                                <li><i class="ti ti-circle"></i> Gimbal Warning System</li>
+                                <li><i class="ti ti-circle"></i> Root Motion Analysis</li>
+                                <li><i class="ti ti-circle"></i> Unreal Engine Export Validator</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Download Section -->
+            <section id="download" class="download-section">
+                <div class="container">
+                    <div class="download-box">
+                        <div class="download-content">
+                            <h2>Get AniKin for Maya</h2>
+                            <p>Compatible with Maya 2022 through 2027. Cross-platform support for Windows, macOS, and Linux.</p>
+                            <div class="compat-icons">
+                                <span><i class="ti ti-brand-windows"></i> Windows</span>
+                                <span><i class="ti ti-brand-apple"></i> macOS</span>
+                                <span><i class="ti ti-brand-open-source"></i> Linux</span>
+                            </div>
+                            <div class="download-actions">
+                                <a href="https://github.com/mihirDP/AniKin/releases" target="_blank" class="btn btn-accent btn-lg"><i class="ti ti-brand-github"></i> Download Latest Release</a>
+                            </div>
+                            <p class="license-note">Licensed under GNU GPLv3. 100% Free. No keys, no server license managers.</p>
+                        </div>
+                        <div class="install-instructions">
+                            <h4>Fast Installation</h4>
+                            <ol>
+                                <li>Download and extract the zip archive.</li>
+                                <li>Drag the <code>drag_drop_install.py</code> file directly into your Maya viewport.</li>
+                                <li>The toolkit launches instantly and installs to your Shelf!</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Community Section -->
+            <section id="community" class="community-section">
+                <div class="container">
+                    <div class="community-card">
+                        <h2>Built by Animators, for Animators</h2>
+                        <p>AniKin is an active public project. Help us build the ultimate toolkit by reporting issues, suggesting kinematic tests, or writing modules.</p>
+                        <div class="community-ctas">
+                            <a href="https://github.com/mihirDP/AniKin" target="_blank" class="btn btn-secondary"><i class="ti ti-brand-github"></i> GitHub Repo</a>
+                            <a href="https://github.com/mihirDP/AniKin/discussions" target="_blank" class="btn btn-secondary"><i class="ti ti-messages"></i> Discussions</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- Documentation Section (Hidden by Default, toggled via JS) -->
+        <section id="docs-view" class="docs-section hidden">
+            <div class="docs-layout">
+                <!-- Docs Sidebar -->
+                <aside class="docs-sidebar">
+                    <div class="docs-search-wrapper">
+                        <i class="ti ti-search search-icon"></i>
+                        <input type="text" id="docs-search-input" placeholder="Search documentation...">
+                    </div>
+                    <div class="docs-nav-group">
+                        <h4>Getting Started</h4>
+                        <a href="#" class="docs-nav-link active" data-doc="doc-intro">Introduction</a>
+                        <a href="#" class="docs-nav-link" data-doc="doc-install">Installation Guide</a>
+                    </div>
+                    <div class="docs-nav-group">
+                        <h4>Modules Guide</h4>
+                        <a href="#" class="docs-nav-link" data-doc="doc-tween">AniTween (Tween Slider)</a>
+                        <a href="#" class="docs-nav-link" data-doc="doc-offset">AniOffset (Stagger)</a>
+                        <a href="#" class="docs-nav-link" data-doc="doc-bake">AniBake (Smart Bake)</a>
+                        <a href="#" class="docs-nav-link" data-doc="doc-mirror">AniMirror (Pose Tools)</a>
+                        <a href="#" class="docs-nav-link" data-doc="doc-vis">AniGhost & AniMotion</a>
+                    </div>
+                    <div class="docs-nav-group">
+                        <h4>Configuration</h4>
+                        <a href="#" class="docs-nav-link" data-doc="doc-hotkeys">Hotkey Setup</a>
+                        <a href="#" class="docs-nav-link" data-doc="doc-layout">Reordering Toolbar</a>
+                    </div>
+                </aside>
+
+                <!-- Docs Content Pane -->
+                <article class="docs-content">
+                    <!-- Intro Doc -->
+                    <div id="doc-intro" class="doc-page active">
+                        <h1>Introduction to AniKin</h1>
+                        <p class="lead">Welcome to AniKin, an open-source animation productivity and kinematics diagnostic toolkit for Autodesk Maya.</p>
+                        <p>AniKin is built with one central mission: to merge daily productivity utilities with robust physics-based kinematics diagnostics. v0.2.0 ships the core productivity module layout, while future releases will introduce automated animation check engines.</p>
+                        
+                        <div class="alert-box note">
+                            <strong>Note:</strong> AniKin is 100% free and open-source under the GNU GPLv3 license.
+                        </div>
+
+                        <h3>Core Philosophy</h3>
+                        <p>Unlike plugins that pack loose scripts together, AniKin organizes every tool as a clean package namespace. This allows technical directors and animators to toggle individual features without bloating their setups.</p>
+                    </div>
+
+                    <!-- Install Doc -->
+                    <div id="doc-install" class="doc-page">
+                        <h1>Installation Guide</h1>
+                        <p>AniKin can be installed either via standard drag-and-drop or manually inside your Maya environment path.</p>
+                        
+                        <h3>Option 1: Drag-and-Drop (Recommended)</h3>
+                        <p>This is the fastest method and automatically hooks the setup into your Maya session shelf:</p>
+                        <ol>
+                            <li>Download the latest release archive.</li>
+                            <li>Extract the files to a safe location on your computer.</li>
+                            <li>Drag the file <code>drag_drop_install.py</code> from the extracted folder and drop it into Maya's 3D viewport.</li>
+                            <li>The AniKin toolbar will launch immediately.</li>
+                        </ol>
+
+                        <h3>Option 2: Manual Module Setup</h3>
+                        <p>If you prefer a manual setup (e.g. for pipeline script distribution):</p>
+                        <ol>
+                            <li>Copy the <code>AniKin</code> directory to your Maya modules folder.</li>
+                            <li>Copy <code>anikin.mod</code> to the same directory.</li>
+                            <li>In Maya's Python Script Editor, run:</li>
+                        </ol>
+                        <pre><code>import anikin
+anikin.launch()</code></pre>
+                    </div>
+
+                    <!-- Tween Doc -->
+                    <div id="doc-tween" class="doc-page">
+                        <h1>AniTween (Tween Slider)</h1>
+                        <p>The <strong>AniTween</strong> module allows animators to quickly calculate breakdowns and blended keyframes relative to the surrounding keyframes.</p>
+                        <h3>Key Features</h3>
+                        <ul>
+                            <li><strong>Linear Interpolation (TW):</strong> Traditional blending slider.</li>
+                            <li><strong>Ease Interpolation (EA):</strong> Easing logic (Ease-In / Ease-Out) built using smoothstep and curve acceleration.</li>
+                            <li><strong>Overshoot:</strong> Dragging sliders beyond 100% or below 0% inserts overshoot values, ideal for quick weight adjustments.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Offset Doc -->
+                    <div id="doc-offset" class="doc-page">
+                        <h1>AniOffset (Stagger)</h1>
+                        <p>The <strong>AniOffset</strong> module is used to stagger keyframes across multiple selected controls.</p>
+                        <h3>Usage</h3>
+                        <p>Select multiple controls in sequence (e.g., tail segments, joints), and click the Offset button on the toolbar. The keys of each subsequent control will offset by a set amount of frames, creating natural overlap and follow-through actions instantly.</p>
+                    </div>
+
+                    <!-- Bake Doc -->
+                    <div id="doc-bake" class="doc-page">
+                        <h1>AniBake (Smart Bake)</h1>
+                        <p>The <strong>AniBake</strong> module handles baking translations and rotations in world space to a temporary locator, allowing you to tweak keyframes or constraints, and bake the modified offsets back onto the target controls.</p>
+                        <h3>Locator Round-trip</h3>
+                        <ol>
+                            <li>Select your control node.</li>
+                            <li>Click the <strong>Bake to Locator</strong> button. A temporary locator is created matching the node's world space.</li>
+                            <li>Perform changes (adjust pivots, parent constraints, offset curves).</li>
+                            <li>Select the target control node and click <strong>Bake from Locator</strong>. The animations are baked back onto the target.</li>
+                        </ol>
+                    </div>
+
+                    <!-- Mirror Doc -->
+                    <div id="doc-mirror" class="doc-page">
+                        <h1>AniMirror (Pose Tools)</h1>
+                        <p><strong>AniMirror</strong> handles copying, pasting, and mirroring poses across asymmetrical character controls.</p>
+                        <h3>Mirror Pose</h3>
+                        <p>Uses axis negation rules to translate pose vectors across symmetry. Ideal for cycling poses or correcting asymmetric joint configurations during cycles.</p>
+                    </div>
+
+                    <!-- Vis Doc -->
+                    <div id="doc-vis" class="doc-page">
+                        <h1>AniGhost & AniMotion</h1>
+                        <p>These two modules wrap Maya's native viewport visualization tools inside simple, fast buttons.</p>
+                        <ul>
+                            <li><strong>AniMotion (Motion Trails):</strong> Creates or removes interactive motion paths for selected controllers.</li>
+                            <li><strong>AniGhost (Ghosting):</strong> Displays frame overlays (pre- and post-frames) in the viewport to inspect key poses.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Hotkeys Doc -->
+                    <div id="doc-hotkeys" class="doc-page">
+                        <h1>Hotkey Setup</h1>
+                        <p>AniKin contains a built-in Hotkey Manager to record and bind shortcuts to any tool in the toolbar.</p>
+                        <p>Click the Keyboard icon on the toolbar to open the manager. Press your desired keys, and click Apply. AniKin binds these actions natively inside Maya's runtime commands, ensuring they persist after restarts.</p>
+                    </div>
+
+                    <!-- Layout Doc -->
+                    <div id="doc-layout" class="doc-page">
+                        <h1>Reordering Toolbar</h1>
+                        <p>You can reorganize your toolbar sections or hide tools you don't use often.</p>
+                        <p>Click the Settings Gear icon on the toolbar, and navigate to the "Toolbar Layout" tab. Use the checklist to toggle visibility, and drag or use arrow keys to sort the sequence of your tool groups.</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-brand">
+                <a href="#" class="logo">
+                    <i class="ti ti-activity logo-icon"></i>
+                    <span>Ani<span class="accent-text">Kin</span></span>
+                </a>
+                <p>The intelligent animation analysis and productivity toolkit for Autodesk Maya.</p>
+                <div class="social-links">
+                    <a href="https://github.com/mihirDP/AniKin" target="_blank"><i class="ti ti-brand-github"></i></a>
+                    <a href="https://github.com/mihirDP/AniKin/discussions" target="_blank"><i class="ti ti-messages"></i></a>
+                </div>
+            </div>
+            <div class="footer-links-group">
+                <h5>Toolkit</h5>
+                <a href="#features">Modules</a>
+                <a href="#download">Download</a>
+                <a href="#roadmap">Roadmap</a>
+            </div>
+            <div class="footer-links-group">
+                <h5>Resources</h5>
+                <a href="#docs" class="docs-toggle-footer">Documentation</a>
+                <a href="https://github.com/mihirDP/AniKin/issues" target="_blank">Report Issue</a>
+            </div>
+            <div class="footer-links-group">
+                <h5>Credits & Licensing</h5>
+                <p class="credits-text">Inspired by open-source workflows. Easing algorithms adapted from the <i>Key Machine</i> toolset under GPLv3. Visual patterns modeled after blender.org design guidelines.</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Mihir Patil. Licensed under GNU GPLv3. Free forever.</p>
+        </div>
+    </footer>
+
+    <!-- Main JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+# PRD: AniKin Website — Frontend & Backend Design
+
+**Document owner:** Mihir
+**Status:** Draft
+**Related docs:** AniKin Brand Stance PRD, AniKin v0.2 Plugin Update PRD
+
+---
+
+## 1. Design Research: blender.org & studio.blender.org
+
+### blender.org — observed patterns
+- **Minimal top nav**, flat list (Features, Download, Support, Get Involved, About, Jobs, Store, Donate) — no mega-dropdowns cluttering the header itself.
+- **Cinematic hero**: the homepage leads with the latest Open Movie trailer, not a feature list — emotion and craft first, specs later.
+- **Single accent color** (`#ed8f31`, a warm orange) used sparingly against a neutral base — not a rainbow of brand colors.
+- **Card-grid content rivers** for News and the Developer Blog — image, title, one-line excerpt, repeated in a clean grid rather than long text blocks.
+- **Feature showcase as an accordion/tab list** ("Everything You Need"): each category (Cycles Render, Modeling, VFX, Animation & Rigging, etc.) expands to a short description, a bullet list of 4–6 specifics, and one large screenshot — not a wall of every feature at once.
+- **A plain-language trust section**: "Blender is a public project hosted on blender.org, licensed as GNU GPL, owned by its contributors" — the license is explained in one sentence, not buried in a footer link.
+- **"It's about people"**: a photo/video grid of real community members and events — humanizes an open-source project instead of presenting it as faceless software.
+- **Industry credibility logos** (Khronos, Linux Foundation, AMD, NVIDIA, etc.) — social proof without being salesy.
+- **A genuinely large but well-categorized footer** — Download, Extensions, Developers, Blender Studio, Support, Get Involved, News, Conference, Social, Donate — functioning almost as a sitemap, which works because every category is short and scannable.
+
+### studio.blender.org — observed patterns
+- **Production-render hero imagery** rather than UI screenshots — sells the *outcome*, not the tool.
+- **Tag chips** on content cards (e.g., "Course" / "Intermediate") with small inline icons — quick visual scanning without reading full descriptions.
+- **Horizontal carousels** for films and production-asset galleries — browseable without overwhelming the page height.
+- **A single clear subscription CTA repeated at multiple scroll depths** ("Subscribe for €11.50/month"), not aggressively, but consistently.
+- **A friendly illustrated character** in the final CTA banner — softens what's otherwise a payment ask.
+- **FAQ accordion** at the bottom handling billing/legal questions, keeping the main page free of legal text.
+- **Footer organized by content type** (Films, Blog, Training) plus a separate "Pipeline and Tools" list naming actual internal tools (Cloud Rig, Blender Kitsu, Blender Purge) — transparent about their own tooling, which is very on-brand for a tool like AniKin to borrow.
+
+### What AniKin should take from this
+The throughline across both sites isn't "minimalism" for its own sake — it's **confidence**: lead with what the tool produces (craft, not chrome), explain the license/cost model in one honest sentence, and let a long but well-organized footer carry the dense navigation instead of cramming it into the header. AniKin's dark-theme-first identity (already established for the plugin UI itself) is a good fit for this approach — a dark site with one accent color and high-quality animation footage as the hero would read as more "professional pipeline tool" than "free script," which directly serves the Brand Stance goal of not looking like a student project.
+
+## 2. Goals
+
+1. A marketing/download site that builds the same trust Blender's sites do for a free, open-source creative tool.
+2. A documentation hub that scales as modules grow (currently 7 planned modules, more after the AnimBot-parity expansion).
+3. A site that visibly demonstrates the brand pillars from the Brand Stance PRD — Open & Transparent, Kinematics-Driven Intelligence, Built for Modern Pipelines — without needing the visitor to read a PRD to understand them.
+4. Zero/near-zero ongoing hosting cost, consistent with TR-6 in the v0.2 Plugin PRD ("no external paid dependencies").
+
+## 3. Non-Goals (for this version)
+
+- No e-commerce/payment flow — AniKin is GPLv3-only per the current Brand Stance (dual licensing is a flagged future consideration, not in scope here).
+- No user accounts/login system at launch — downloads and docs stay public, no gating.
+- No custom forum — community discussion is deferred to GitHub Discussions/Discord rather than building one in-house.
+
+## 4. Frontend: Information Architecture
+
+| Section | Purpose | Blender-Site Parallel |
+|---|---|---|
+| Hero | A short clip of AniKin tools in use inside Maya (motion trail, tween slider, mirror) over a one-line tagline anchored to "Animation Kinematics" | blender.org's Open Movie trailer hero |
+| Modules showcase | Accordion/tab per module (`AniTween`, `AniMirror`, `AniGhost`, etc.), each with a 2–3 sentence description, a bullet list of specific tools inside it, and a screenshot or short GIF | "Everything You Need" feature tabs |
+| Free & Open Source | One-paragraph plain-language explanation: GPLv3, no license key, no telemetry, link to full license | blender.org's license section |
+| Roadmap | Now / Next / Vision tiers (pulled directly from the Brand Stance and Implementation Plan PRDs), styled as a card river similar to blender.org's Dev Blog cards | code.blender.org dev blog cards |
+| Download | Maya-version compatibility matrix (2022–2027), OS icons (Win/macOS/Linux), single "Download" CTA pulling the latest GitHub Release | blender.org Download page |
+| Docs | Searchable documentation per module, versioned alongside releases | docs.blender.org |
+| Community | GitHub contributor grid, Discord invite, link to good-first-issue list | "It's about people" community grid |
+| Footer | Full sitemap: Modules, Download, Docs, Roadmap, GitHub, Discord, License, Credits/Attribution (Key Machine, GPL inspirations) | blender.org's mega-footer |
+
+## 5. Visual Identity Direction
+
+- **Theme:** dark-first, matching the plugin's own dockable dark-theme UI (consistency between the tool and the site reinforces "Built for Modern Pipelines").
+- **Accent color:** a single accent (placeholder recommendation: a warm amber/saffron, distinct from AnimBot's and Blender's orange but in the same energetic family — open question below) used sparingly for CTAs and active states only, exactly as blender.org restricts its orange.
+- **Typography:** one display face for headlines (something with technical/geometric character, befitting "Kinematics"), one clean sans for body copy — avoid more than two families.
+- **Iconography:** use the same icon mapping established in the AnimBot Feature Audit document (Phosphor/Tabler-style line icons) across the Modules showcase, so the site and the in-app UI share one visual icon language.
+- **Photography/footage over screenshots where possible:** per the research above, lead sections with actual animation output (motion trails, mirrored poses in motion) rather than static UI screenshots, reserving screenshots for the Docs section where precision matters more than mood.
+
+## 6. Backend Requirements
+
+### 6.1 Stack Recommendation
+Given AniKin has no revenue and no user-account requirements at this stage, the simplest sustainable stack is a **static site generator** rather than a database-backed CMS like WordPress (which is what both Blender sites run on, but which carries hosting/maintenance overhead Blender's foundation can absorb and a solo open-source project shouldn't take on prematurely).
+
+- **Site generator:** Astro or a similar static-first framework (component-based, ships zero JS by default, good fit for a content + docs site).
+- **Docs:** MDX-based docs colocated in the same repo as the marketing site, versioned via Git tags alongside plugin releases.
+- **Hosting:** Cloudflare Pages or GitHub Pages — both free at this scale, both fit TR-6's "no external paid dependencies" stance.
+- **Download distribution:** source the version matrix and download links directly from the GitHub Releases API at build time, rather than maintaining a separate download server — this also means new releases automatically appear on the site with zero manual site updates.
+- **Analytics:** if wanted, a privacy-respecting option (Plausible or self-hosted Umami) rather than Google Analytics — consistent with the "Open & Transparent" brand pillar.
+- **Community:** embed/link out to Discord and GitHub Discussions rather than building custom comment/forum infrastructure.
+
+### 6.2 What AniKin's Backend Does NOT Need (Unlike AnimBot)
+AnimBot's backend has to handle license keys, floating licenses (RLM), subscription billing, and per-version access gating. AniKin's GPLv3, no-license-key stance means none of that infrastructure is needed at all — this is a genuine simplicity advantage worth stating on the site itself ("no keycode, no license server, just download and go").
+
+### 6.3 Future Consideration (Flagged, Not In Scope)
+If the dual-licensing direction noted in the Brand Stance PRD (Section 10) is ever pursued, a lightweight payment processor (e.g., Lemon Squeezy or Paddle, both of which handle tax/compliance for indie projects) plus a simple license-key issuance flow would need to be added at that point. This PRD intentionally does not build toward that now, to avoid scope creep — but the static-site architecture above doesn't block adding it later as a separate, optional commercial-tier page.
+
+## 7. Success Metrics
+
+- Time-to-first-download from landing on the homepage (proxy for hero/CTA clarity).
+- Docs page bounce rate per module (signals which modules need clearer explanation/screenshots).
+- GitHub stars/Discord joins attributable to site referral (UTM-tagged links from the site's Download and Community CTAs).
+
+## 8. Open Questions
+
+- What's the accent color? Recommend treating this as a quick decision rather than overthinking it — pick one, test it against the dark theme, move on.
+- Should the Roadmap section on the site be public-facing for all four tiers (Now/Next/Vision/v2.0 diagnostics), or only Now + Next, holding Vision-tier ideas back until closer to implementation (per the existing Messaging Guidelines "don't" in the Brand Stance PRD)?
+- Does the Modules showcase ship with screenshots/GIFs for modules that don't exist yet (AniSpace, AniRecover), or do unbuilt modules stay text-only until there's something to show? @contextScopeItemMention  add the Web codebase in that FOlder exclusively! 

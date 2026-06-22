@@ -1,3 +1,16 @@
-Documents/
+# Local installer for another tool (untracked)
 TheKeyMachine_installer/
-AniKinWeb/
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# IDE configs
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
