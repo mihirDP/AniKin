@@ -54,18 +54,24 @@ class CheckPanel(QtWidgets.QDialog):
         self.chk_duplicate = QtWidgets.QCheckBox("Duplicate Keys")
         self.chk_infinity = QtWidgets.QCheckBox("Infinity Settings")
         self.chk_zerolen = QtWidgets.QCheckBox("Zero-length Keys")
+        self.chk_footslide = QtWidgets.QCheckBox("Foot Slide")
+        self.chk_density = QtWidgets.QCheckBox("Key Density")
 
         self.chk_gimbal.setChecked(True)
         self.chk_subframe.setChecked(True)
         self.chk_duplicate.setChecked(True)
         self.chk_infinity.setChecked(True)
         self.chk_zerolen.setChecked(True)
+        self.chk_footslide.setChecked(True)
+        self.chk_density.setChecked(True)
 
         filter_layout.addWidget(self.chk_gimbal, 0, 0)
         filter_layout.addWidget(self.chk_subframe, 0, 1)
         filter_layout.addWidget(self.chk_duplicate, 0, 2)
         filter_layout.addWidget(self.chk_infinity, 1, 0)
         filter_layout.addWidget(self.chk_zerolen, 1, 1)
+        filter_layout.addWidget(self.chk_footslide, 1, 2)
+        filter_layout.addWidget(self.chk_density, 2, 0)
 
         top_settings.addWidget(filter_group)
         layout.addLayout(top_settings)
@@ -140,6 +146,10 @@ class CheckPanel(QtWidgets.QDialog):
             if issue.category == "Infinity" and not self.chk_infinity.isChecked():
                 continue
             if issue.category == "ZeroLength" and not self.chk_zerolen.isChecked():
+                continue
+            if issue.category == "FootSlide" and not self.chk_footslide.isChecked():
+                continue
+            if issue.category == "Density" and not self.chk_density.isChecked():
                 continue
             self.issues.append(issue)
 

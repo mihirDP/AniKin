@@ -89,6 +89,31 @@ QPushButton[accent="true"]:pressed {{
     background-color: {accent_pressed};
 }}
 
+/* ── Tool Buttons (clean, flat, borderless) ───────────────── */
+ToolButton {{
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 2px;
+}}
+ToolButton:hover {{
+    background-color: {bg_hover};
+}}
+ToolButton:pressed {{
+    background-color: {bg_pressed};
+}}
+ToolButton[accent="true"] {{
+    border: 1px solid {accent_muted};
+}}
+ToolButton[accent="true"]:hover {{
+    border-color: {accent};
+    background-color: {bg_hover};
+}}
+ToolButton[accent="true"]:pressed {{
+    border-color: {accent_pressed};
+    background-color: {bg_pressed};
+}}
+
 /* ── Sliders ──────────────────────────────────────────────── */
 QSlider::groove:horizontal {{
     border: 1px solid {border};

@@ -1,12 +1,16 @@
-﻿"""
+"""
 AniChannels.py
-Channel Utilities â€” lock/unlock, key/unkey, mute/unmute AniChannels.
+Channel Utilities — lock/unlock, key/unkey, mute/unmute channels.
 
 Quick toggles for channel box operations that animators use constantly.
+
+When the user has Shift+clicked a timeline range, key/delete operations
+apply across that entire range rather than just the current frame.
 """
 
 import maya.cmds as cmds
 from anikin.core.undo import UndoChunk
+from anikin.core.timeline import get_timeline_range
 
 
 def _get_selected_channels():
@@ -57,21 +61,35 @@ def unlock_channels():
 
 
 def key_channels():
-    """Set a keyframe on highlighted channels (or all keyable) at current time."""
+    """
+    Set a keyframe on highlighted channels (or all keyable) at the current
+    time or across the timeline highlighted range.
+    """
     sel = cmds.ls(selection=True) or []
     if not sel:
         cmds.warning("AniKin: Select objects first.")
         return
 
     channels = _get_selected_channels()
+    start, end, is_range = get_timeline_range()
 
     with UndoChunk("AniKin: Key Channels"):
-        for node in sel:
-            if channels:
-                for attr in channels:
-                    cmds.setKeyframe(node, attribute=attr)
-            else:
-                cmds.setKeyframe(node)
+        if is_range:
+            # Set keys at every whole frame in the range
+            for frame in range(start, end + 1):
+                for node in sel:
+                    if channels:
+                        for attr in channels:
+                            cmds.setKeyframe(node, attribute=attr, time=frame)
+                    else:
+                        cmds.setKeyframe(node, time=frame)
+        else:
+            for node in sel:
+                if channels:
+                    for attr in channels:
+                        cmds.setKeyframe(node, attribute=attr)
+                else:
+                    cmds.setKeyframe(node)
 
     cmds.inViewMessage(
         amg="<hl>AniKin</hl>: Keyed channels",
@@ -80,23 +98,25 @@ def key_channels():
 
 
 def delete_keys():
-    """Delete keyframes on highlighted channels at the current time."""
+    """
+    Delete keyframes on highlighted channels at the current time
+    or across the timeline highlighted range.
+    """
     sel = cmds.ls(selection=True) or []
     if not sel:
         cmds.warning("AniKin: Select objects first.")
         return
 
     channels = _get_selected_channels()
-    current_time = cmds.currentTime(query=True)
+    start, end, is_range = get_timeline_range()
 
     with UndoChunk("AniKin: Delete Keys"):
         for node in sel:
             if channels:
                 for attr in channels:
                     cmds.cutKey(node, attribute=attr,
-                                time=(current_time, current_time),
+                                time=(start, end),
                                 clear=True)
             else:
-                cmds.cutKey(node, time=(current_time, current_time),
+                cmds.cutKey(node, time=(start, end),
                             clear=True)
-

@@ -1,16 +1,32 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="#e91e63"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard"
->
-  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-  <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
-  <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="PastePose" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        stroke-linecap: round;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: none;
+        fill-rule: evenodd;
+        stroke: #f97316;
+      }
+
+      .cls-1, .cls-3 {
+        stroke-miterlimit: 10;
+        stroke-width: 2px;
+      }
+
+      .cls-2 {
+        stroke-linejoin: round;
+        stroke-width: 1.2px;
+      }
+    </style>
+  </defs>
+  <path id="Shape_2" data-name="Shape 2" class="cls-1" d="M6.06,15.13c2.78-2.21,6.98-4.96,10.66-3.22,2.92,1.39,6.62,6.85,10.57,4.97"/>
+  <polyline id="Shape_3" data-name="Shape 3" class="cls-1" points="9.04 28.17 14.45 17.43 15.99 12.02"/>
+  <polyline id="Shape_4" data-name="Shape 4" class="cls-1" points="19.48 28.73 19.48 20.45 14.54 17.6"/>
+  <path id="Shape_1_copy" data-name="Shape 1 copy" class="cls-3" d="M19.12,8.68c-1.38,0-2.59-.8-3.22-1.96-.04-.08-.09-.17-.12-.25-.21-.46-.32-.96-.32-1.49,0-2,1.66-3.54,3.66-3.54s3.62,1.62,3.62,3.62-1.62,3.62-3.62,3.62Z"/>
+  <polygon class="cls-2" points="11.41 1.65 11.41 8.77 5.62 8.77 5.62 1.65 7.29 1.65 7.29 2.33 9.91 2.33 9.91 1.65 11.41 1.65"/>
+  <polygon class="cls-2" points="11.41 1.65 11.41 8.68 5.62 8.68 5.62 1.65 7.29 1.65 7.29 2.33 9.91 2.33 9.91 1.65 11.41 1.65"/>
 </svg>

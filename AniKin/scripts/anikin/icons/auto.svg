@@ -1,15 +1,37 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="#ff9800"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  class="icon icon-tabler icons-tabler-outline icon-tabler-activity"
->
-  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-  <path d="M3 12h4l3 8l4 -16l3 8h4" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="AutoTangent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke-width: 1.2px;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: none;
+        stroke: #f97316;
+      }
+
+      .cls-2, .cls-3 {
+        stroke-linecap: round;
+      }
+
+      .cls-3 {
+        stroke-linejoin: round;
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <path class="cls-3" d="M19.54,3.1c4.09,4.07,4.03,10.75,0,14.68-4.12,4.02-11.01,3.79-14.92-.64"/>
+  <g>
+    <line class="cls-1" x1="12.19" y1="26.26" x2="27.06" y2="10.39"/>
+    <circle class="cls-1" cx="27.49" cy="9.81" r=".57"/>
+    <circle class="cls-1" cx="11.69" cy="26.78" r=".57"/>
+  </g>
+  <line class="cls-2" x1="10.54" y1="6.65" x2="9.06" y2="11.44"/>
+  <line class="cls-2" x1="10.54" y1="6.65" x2="12.03" y2="11.44"/>
+  <line class="cls-2" x1="9.73" y1="9.49" x2="11.36" y2="9.49"/>
 </svg>

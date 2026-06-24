@@ -69,6 +69,10 @@ def run_diagnostics(scope="selected"):
     plugs = _get_animated_plugs(scope)
     issues = []
 
+    start = int(cmds.playbackOptions(query=True, minTime=True))
+    end = int(cmds.playbackOptions(query=True, maxTime=True))
+    total_frames = end - start + 1
+
     for plug in plugs:
         # Get matching curve node
         curves = cmds.listConnections(plug, type="animCurve")
@@ -97,6 +101,20 @@ def run_diagnostics(scope="selected"):
                 time=None,
                 fix_fn=make_inf_fn()
             ))
+
+        # Key Density Check
+        if total_frames > 5:
+            key_count = cmds.keyframe(plug, query=True, keyframeCount=True, time=(start, end)) or 0
+            density = float(key_count) / total_frames
+            if density > 0.9 and key_count > 10:
+                issues.append(Issue(
+                    category="Density",
+                    severity="Medium",
+                    description="High key density ({:.0%}) — potential baked curves".format(density),
+                    plug=plug,
+                    time=None,
+                    fix_fn=None
+                ))
 
         for i in range(len(times)):
             t = times[i]
@@ -163,7 +181,30 @@ def run_diagnostics(scope="selected"):
                         fix_fn=make_delete_fn()
                     ))
 
+    # Foot Slide Check
+    nodes = cmds.ls(selection=True) if scope == "selected" else cmds.ls(type="transform")
+    foot_controls = [n for n in nodes if any(term in n.lower() for term in ["foot", "ankle", "heel", "ik"])]
+    if foot_controls:
+        try:
+            from anikin import AniFootSlide
+            slide_results = AniFootSlide.detect_foot_slide(foot_controls, start, end)
+            for ctrl, events in slide_results.items():
+                for start_f, end_f in events:
+                    def make_fix_slide_fn(c=ctrl, s=start_f, e=end_f):
+                        return lambda: AniFootSlide.fix_foot_slide(c, s, e)
+                    issues.append(Issue(
+                        category="FootSlide",
+                        severity="High",
+                        description="Foot slide detected between frames {} and {}".format(start_f, end_f),
+                        plug=ctrl,
+                        time=start_f,
+                        fix_fn=make_fix_slide_fn()
+                    ))
+        except Exception as e:
+            log_debug("AniCheck: Failed to run foot slide detection: {}".format(e))
+
     return issues
+
 
 
 # —— Automated Fix Functions ————————————————————————————————

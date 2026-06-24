@@ -25,6 +25,7 @@ DEFAULT_SECTIONS = [
     "Poses",
     "Bookmarks",
     "Diagnostics",
+    "Pipeline",
     "Setup"
 ]
 

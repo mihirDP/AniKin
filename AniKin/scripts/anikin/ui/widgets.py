@@ -9,6 +9,103 @@ import os
 from anikin.core.qt_compat import QtWidgets, QtCore, QtGui
 
 
+# ─────────────────────────────────────────────────────────
+# Flow Layout — wraps children to next row, like a word wrap
+# ─────────────────────────────────────────────────────────
+
+class FlowLayout(QtWidgets.QLayout):
+    """
+    A Qt layout that arranges children left-to-right, wrapping to
+    the next row when the available width is exhausted.
+    Suitable for a toolbar that needs to wrap rather than compress.
+    """
+
+    def __init__(self, parent=None, margin=0, spacing=3):
+        super(FlowLayout, self).__init__(parent)
+        self._items = []
+        self.setContentsMargins(margin, margin, margin, margin)
+        self.setSpacing(spacing)
+
+    def __del__(self):
+        item = self.takeAt(0)
+        while item:
+            item = self.takeAt(0)
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def expandingDirections(self):
+        return QtCore.Qt.Orientations(QtCore.Qt.Orientation(0))
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._do_layout(QtCore.QRect(0, 0, width, 0), test_only=True)
+
+    def setGeometry(self, rect):
+        super(FlowLayout, self).setGeometry(rect)
+        self._do_layout(rect, test_only=False)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QtCore.QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        margins = self.contentsMargins()
+        size += QtCore.QSize(
+            margins.left() + margins.right(),
+            margins.top() + margins.bottom()
+        )
+        return size
+
+    def _do_layout(self, rect, test_only):
+        left, top, right, bottom = self.getContentsMargins()
+        effective_rect = rect.adjusted(left, top, -right, -bottom)
+        x = effective_rect.x()
+        y = effective_rect.y()
+        line_height = 0
+        spacing = self.spacing()
+
+        for item in self._items:
+            widget = item.widget()
+            space_x = spacing
+            space_y = spacing
+            next_x = x + item.sizeHint().width() + space_x
+            if next_x - space_x > effective_rect.right() and line_height > 0:
+                x = effective_rect.x()
+                y = y + line_height + space_y
+                next_x = x + item.sizeHint().width() + space_x
+                line_height = 0
+
+            if not test_only:
+                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
+
+            x = next_x
+            line_height = max(line_height, item.sizeHint().height())
+
+        return y + line_height - rect.y() + bottom
+
+
+# ─────────────────────────────────────────────────────────
+# Section separator
+# ─────────────────────────────────────────────────────────
+
 class SectionSeparator(QtWidgets.QFrame):
     """A vertical line separator between toolbar sections."""
 
@@ -19,11 +116,15 @@ class SectionSeparator(QtWidgets.QFrame):
         self.setFixedWidth(2)
 
 
+# ─────────────────────────────────────────────────────────
+# Tool Button
+# ─────────────────────────────────────────────────────────
+
 class ToolButton(QtWidgets.QPushButton):
     """
     An icon-first toolbar button.
 
-    In v0.2.0, the label directly corresponds to the SVG filename in the
+    In v0.4.0, the label directly corresponds to the SVG filename in the
     icons/ directory (e.g., label="align_all" loads "align_all.svg").
     If no icon is found, the label text is shown as a fallback.
 
@@ -31,7 +132,7 @@ class ToolButton(QtWidgets.QPushButton):
         label: Icon filename stem (e.g., "align_all") or display text fallback.
         tooltip: Tooltip shown on hover.
         callback: Function called on click.
-        accent: If True, uses accent styling.
+        accent: If True, uses accent styling (subtle border highlight).
     """
 
     # Calculate icons dir once at class level
@@ -58,13 +159,13 @@ class ToolButton(QtWidgets.QPushButton):
                 break
 
         if icon_found:
-            self.setIconSize(QtCore.QSize(20, 20))
-            self.setText("")  # Hide text â€” icon only
-            self.setFixedSize(30, 30)
+            self.setIconSize(QtCore.QSize(26, 26))
+            self.setText("")  # Hide text — icon only
+            self.setFixedSize(36, 36)
         else:
             # Fallback: display the label text
             self.setText(label)
-            self.setMinimumWidth(28)
+            self.setMinimumWidth(34)
 
         # Context menu support
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -91,62 +192,146 @@ class ToolButton(QtWidgets.QPushButton):
         menu.exec_(self.mapToGlobal(pos))
 
 
+# ─────────────────────────────────────────────────────────
+# Tween / Ease Slider  — compact, color-coded
+# ─────────────────────────────────────────────────────────
+
+# Per-slider accent colours (separate from global ACCENT so they can't be confused)
+_SLIDER_THEMES = {
+    "TW": {
+        "badge_bg":    "#c25900",   # Warm amber-orange
+        "badge_fg":    "#fff3e0",
+        "groove":      "#1e1e1e",
+        "fill":        "#f97316",   # Orange fill
+        "handle":      "#fb923c",
+        "handle_bdr":  "#c2410c",
+        "label":       "TW",
+    },
+    "EA": {
+        "badge_bg":    "#5b21b6",   # Deep violet
+        "badge_fg":    "#ede9fe",
+        "groove":      "#1e1e1e",
+        "fill":        "#7c3aed",   # Purple fill
+        "handle":      "#a78bfa",
+        "handle_bdr":  "#4c1d95",
+        "label":       "EA",
+    },
+}
+
+
 class TweenSlider(QtWidgets.QWidget):
     """
-    A combined slider + value display for the Tween tool.
-    Emits value_changed(float) with the bias in range -0.5 to 1.5.
+    A compact, color-coded slider widget for the Tween and Ease tools.
+
+    Emits value_changed(float) with the bias in the range -0.5..1.5.
+    Each slider type (TW / EA) has its own color scheme so they are
+    immediately visually distinct inside the toolbar.
     """
 
     value_changed = QtCore.Signal(float)
 
-    def __init__(self, parent=None, label="TW", tooltip="Tween Slider", default_val=100):
+    def __init__(self, parent=None, label="TW", tooltip="Tween Slider",
+                 default_val=100):
         super(TweenSlider, self).__init__(parent)
 
         self.default_val = default_val
+        theme = _SLIDER_THEMES.get(label, _SLIDER_THEMES["TW"])
 
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        # ── outer container ──────────────────────────────────
+        root = QtWidgets.QVBoxLayout(self)
+        root.setContentsMargins(2, 1, 2, 1)
+        root.setSpacing(1)
 
-        self.badge = QtWidgets.QLabel(label)
-        self.badge.setProperty("header", True)
+        # ── top row: badge + value label ─────────────────────
+        top_row = QtWidgets.QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(3)
+
+        self.badge = QtWidgets.QLabel(theme["label"])
         self.badge.setAlignment(QtCore.Qt.AlignCenter)
-        self.badge.setFixedSize(22, 22)
-        self.badge.setStyleSheet("background-color: #3b3b3b; color: #e0e0e0; border-radius: 4px; font-weight: bold; font-size: 10px;")
-        layout.addWidget(self.badge)
+        self.badge.setFixedSize(24, 14)
+        self.badge.setStyleSheet(
+            "background-color: {bg}; color: {fg}; border-radius: 3px;"
+            "font-weight: bold; font-size: 8px; letter-spacing: 0.5px;".format(
+                bg=theme["badge_bg"], fg=theme["badge_fg"]
+            )
+        )
+        top_row.addWidget(self.badge)
 
-        # The slider: internal range 0-200 mapped to -0.5 to 1.5
+        top_row.addStretch()
+
+        self.value_label = QtWidgets.QLabel("0%")
+        self.value_label.setFixedWidth(30)
+        self.value_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.value_label.setStyleSheet(
+            "color: {fg}; font-size: 8px; font-weight: bold;".format(fg=theme["badge_fg"])
+        )
+        top_row.addWidget(self.value_label)
+
+        root.addLayout(top_row)
+
+        # ── slider ───────────────────────────────────────────
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.slider.setRange(0, 200)
         self.slider.setValue(self.default_val)
-        self.slider.setFixedWidth(100)
+        self.slider.setFixedWidth(110)
+        self.slider.setFixedHeight(14)
         self.slider.setToolTip(tooltip)
-        layout.addWidget(self.slider)
 
-        # Value display
-        self.value_label = QtWidgets.QLabel("50%")
-        self.value_label.setFixedWidth(32)
-        self.value_label.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(self.value_label)
+        # Per-slider inline stylesheet so both can coexist on the same widget
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {{
+                height: 5px;
+                background: {groove};
+                border-radius: 2px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {fill};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {handle};
+                border: 1px solid {handle_bdr};
+                width: 12px;
+                height: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: {fill};
+            }}
+        """.format(
+            groove=theme["groove"],
+            fill=theme["fill"],
+            handle=theme["handle"],
+            handle_bdr=theme["handle_bdr"],
+        ))
 
-        # Connect
+        root.addWidget(self.slider)
+
+        # Connect signals
         self.slider.valueChanged.connect(self._on_slider_changed)
         self.slider.sliderReleased.connect(self._on_slider_released)
 
+        # Fixed overall size so it occupies a predictable amount of toolbar space
+        self.setFixedWidth(114)
+        self.setFixedHeight(36)
+
+    # ── value helpers ────────────────────────────────────────
+
     def _on_slider_changed(self, raw_value):
-        """Map slider int (0-200) to bias float (-0.5 to 1.5)."""
-        bias = (raw_value - 50) / 100.0  # 0â†’-0.5, 100â†’0.5, 200â†’1.5
+        """Map slider int (0-200) to bias float (-0.5..1.5)."""
+        bias = (raw_value - 100) / 100.0   # 0→-1, 100→0, 200→+1
         percent = int(bias * 100)
-        self.value_label.setText("{}%".format(percent))
+        sign = "+" if percent > 0 else ""
+        self.value_label.setText("{}{}%".format(sign, percent))
         self.value_changed.emit(bias)
 
     def _on_slider_released(self):
-        """Reset slider to center when released."""
+        """Snap slider back to centre on mouse-up."""
         self.slider.setValue(100)
-        self.value_label.setText("50%")
+        self.value_label.setText("0%")
 
     def get_bias(self):
-        """Return the current bias value."""
-        raw = self.slider.value()
-        return (raw - 50) / 100.0
-
+        """Return the current bias value (float -1..+1)."""
+        return (self.slider.value() - 100) / 100.0

@@ -1,16 +1,20 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="#f44336"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  class="icon icon-tabler icons-tabler-outline icon-tabler-layers-intersect"
->
-  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-  <path d="M8 6a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -8" />
-  <path d="M4 10a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -8" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="StaggerKeys" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        fill: none;
+        stroke: #f97316;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-2 {
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <polygon class="cls-2" points="21.06 15.05 17.94 23.15 16.88 25.89 15.79 28.74 10.61 15.24 15.86 1.56 16.97 4.41 18.01 7.15 21.06 15.05"/>
+  <polygon class="cls-1" points="27.36 15.05 22.11 28.74 21.06 26 25.27 15.05 21.13 4.29 22.19 1.56 27.36 15.05"/>
+  <polygon class="cls-1" points="4.04 15.05 9.28 28.74 10.34 26 6.13 15.05 10.27 4.29 9.21 1.56 4.04 15.05"/>
 </svg>

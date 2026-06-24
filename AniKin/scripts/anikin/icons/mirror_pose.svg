@@ -1,17 +1,45 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="#e91e63"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  class="icon icon-tabler icons-tabler-outline icon-tabler-flip-horizontal"
->
-  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-  <path d="M3 12l18 0" />
-  <path d="M7 16l10 0l-10 5l0 -5" />
-  <path d="M7 8l10 0l-10 -5l0 5" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="MirrorPose" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke-dasharray: 0 0 1.2 2;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-width: 1.2px;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4 {
+        stroke: #10b981;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-1, .cls-2, .cls-4 {
+        fill: none;
+      }
+
+      .cls-2 {
+        stroke-dasharray: 0 0 1 2;
+      }
+
+      .cls-3 {
+        fill: #020202;
+      }
+
+      .cls-3, .cls-4 {
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <line class="cls-4" x1="16.14" y1="1.59" x2="16.14" y2="27.58"/>
+  <line class="cls-3" x1="12.42" y1="5.34" x2="12.42" y2="27.58"/>
+  <g>
+    <line class="cls-4" x1="12.42" y1="5.34" x2="1.79" y2="27.58"/>
+    <line class="cls-4" x1="12.42" y1="27.58" x2="1.79" y2="27.58"/>
+  </g>
+  <line class="cls-2" x1="19.54" y1="5.34" x2="19.54" y2="27.58"/>
+  <line class="cls-2" x1="19.54" y1="5.34" x2="30.17" y2="27.58"/>
+  <line class="cls-1" x1="19.54" y1="27.58" x2="30.17" y2="27.58"/>
 </svg>

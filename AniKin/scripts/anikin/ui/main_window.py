@@ -24,7 +24,7 @@ from anikin.core.qt_compat import (
 )
 from anikin.ui.theme import STYLESHEET
 from anikin.ui.widgets import (
-    SectionSeparator, ToolButton, TweenSlider
+    SectionSeparator, ToolButton, TweenSlider, FlowLayout
 )
 
 # Tool imports
@@ -45,6 +45,10 @@ from anikin import AniWave
 from anikin import AniNoise
 from anikin import AniCheck
 from anikin import AniSnap
+from anikin import AniGround
+from anikin import AniCleanup
+from anikin import AniDuplicate
+from anikin import AniExport
 from anikin.ui import selection_sets_panel
 from anikin.ui import bookmarks_panel
 from anikin.ui import check_panel
@@ -57,9 +61,9 @@ from anikin.core import settings
 
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ──────────────────────────────────────────────────────────────────────────────────
 # Window class
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ──────────────────────────────────────────────────────────────────────────────────
 
 class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     """Main AniKin dockable toolbar window."""
@@ -72,28 +76,33 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
 
         self.setObjectName(self.WINDOW_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
-        self.setMinimumHeight(44)
+        self.setMinimumHeight(52)
 
         self._build_ui()
         self.setStyleSheet(STYLESHEET)
 
-    # â”€â”€ UI Construction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── UI Construction ─────────────────────────────────────────────────────────
 
     def _build_ui(self):
         """Setup the outer structures and prepare the layout."""
-        # Outer wrapper â€” QVBoxLayout holds a QFrame that enforces min height
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
-        self.toolbar_frame = QtWidgets.QFrame()
-        self.toolbar_frame.setObjectName("AniKinToolbar")
-        self.toolbar_frame.setMinimumHeight(40)
-        outer.addWidget(self.toolbar_frame)
+        # Scroll area allows the toolbar to wrap to two rows without clipping
+        self._scroll = QtWidgets.QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self._scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self._scroll.setStyleSheet("QScrollArea { background: transparent; }")
+        outer.addWidget(self._scroll)
 
-        # Inner horizontal layout â€” all tools sit here
-        self.toolbar_layout = QtWidgets.QHBoxLayout(self.toolbar_frame)
-        self.toolbar_layout.setContentsMargins(6, 3, 6, 3)
-        self.toolbar_layout.setSpacing(3)
+        self.toolbar_frame = QtWidgets.QWidget()
+        self.toolbar_frame.setObjectName("AniKinToolbar")
+        self._scroll.setWidget(self.toolbar_frame)
+
+        # FlowLayout: buttons wrap to next row automatically
+        self.toolbar_layout = FlowLayout(self.toolbar_frame, margin=4, spacing=3)
 
         # Populate toolbar dynamically
         self.rebuild_toolbar()
@@ -116,7 +125,6 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         """Clear and rebuild the toolbar widgets dynamically based on user settings."""
         self._clear_layout(self.toolbar_layout)
 
-        # Load layout configuration
         cfg = settings.load_settings()
         order = cfg["section_order"]
         visible = cfg["visible_sections"]
@@ -125,7 +133,6 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         for sec in order:
             if sec not in visible:
                 continue
-
             if not first:
                 self.toolbar_layout.addWidget(SectionSeparator())
             first = False
@@ -154,13 +161,12 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
                 self._add_poses_section()
             elif sec == "Diagnostics":
                 self._add_diagnostics_section()
+            elif sec == "Pipeline":
+                self._add_pipeline_section()
             elif sec == "Setup":
                 self._add_setup_section()
 
-        # Re-add stretch at the end
-        self.toolbar_layout.addStretch()
-
-    # â”€â”€ Section Builder Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Section Builder Helpers ─────────────────────────────────────────────────
 
     def _add_transform_section(self):
         # Reset transform (first so it's the "undo" position)
@@ -180,6 +186,17 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "align_rotate", "Align Rotation only",
             callback=lambda: AniAlign.execute(translate=False, rotate=True)
         ))
+        # Grounding tool
+        ground_btn = ToolButton(
+            "ground", "AniGround: Ground selected objects (lowest bbox point to Y=0)\n(Right-click for options)",
+            callback=lambda: AniGround.ground_objects(mode="individual")
+        )
+        ground_btn.set_context_menu([
+            ("Ground Individually", lambda: AniGround.ground_objects(mode="individual")),
+            ("Ground to Last Selected (Keep Offsets)", lambda: AniGround.ground_objects(mode="keep_offset"))
+        ])
+        self.toolbar_layout.addWidget(ground_btn)
+
         # Pose tools (copy/paste/mirror)
         self.toolbar_layout.addWidget(ToolButton(
             "copy_pose", "Copy Pose to clipboard",
@@ -189,10 +206,16 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "paste_pose", "Paste Pose from clipboard",
             callback=AniMirror.paste_pose
         ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "mirror_pose", "Mirror Pose (negate TX/TZ/RY)",
+        
+        mirror_btn = ToolButton(
+            "mirror_pose", "Mirror Pose (negate TX/TZ/RY)\n(Right-click for options)",
             callback=AniMirror.mirror_pose
-        ))
+        )
+        mirror_btn.set_context_menu([
+            ("Mirror Pose (negate TX/TZ/RY)", AniMirror.mirror_pose),
+            ("Flip Pose (L<->R Swap)", AniMirror.flip_pose)
+        ])
+        self.toolbar_layout.addWidget(mirror_btn)
 
     def _add_tangents_section(self):
         for ttype, icon, tip in [
@@ -253,6 +276,17 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "offset", "Stagger keys across selection (+2 frames each)",
             callback=lambda: AniOffset.execute(offset_frames=2)
         ))
+
+        # Duplicate & Slide
+        duplicate_btn = ToolButton(
+            "duplicate", "AniDuplicate: Duplicate & Slide Keys\n(Right-click for options)",
+            callback=lambda: self._on_duplicate(mode="overwrite")
+        )
+        duplicate_btn.set_context_menu([
+            ("Duplicate (Overwrite Mode)", lambda: self._on_duplicate(mode="overwrite")),
+            ("Duplicate (Merge Mode)", lambda: self._on_duplicate(mode="merge"))
+        ])
+        self.toolbar_layout.addWidget(duplicate_btn)
 
     def _add_tween_section(self):
         self.tween_slider = TweenSlider(label="TW", tooltip="Tween Slider (Linear Interpolation)")
@@ -332,6 +366,18 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(noise_btn)
 
+        # Cleanup curve
+        cleanup_btn = ToolButton(
+            "cleanup", "AniCleanup: Reduce redundant keyframes\n(Right-click for options)",
+            callback=lambda: self._on_cleanup(tolerance=0.01)
+        )
+        cleanup_btn.set_context_menu([
+            ("Clean Redundant (Tolerance: 0.01)", lambda: self._on_cleanup(tolerance=0.01)),
+            ("Clean Redundant (Tolerance: 0.05)", lambda: self._on_cleanup(tolerance=0.05)),
+            ("Clean Redundant (Tolerance: 0.1)", lambda: self._on_cleanup(tolerance=0.1)),
+        ])
+        self.toolbar_layout.addWidget(cleanup_btn)
+
     def _add_vis_section(self):
         trail_btn = ToolButton(
             "trail", "Toggle Motion Trail\n(Right-click for options)",
@@ -381,6 +427,12 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "stethoscope", "AniCheck: Curve Health Diagnostics",
             callback=check_panel.show_panel,
             accent=True
+        ))
+
+    def _add_pipeline_section(self):
+        self.toolbar_layout.addWidget(ToolButton(
+            "file_export", "AniExport: Export FBX with Unreal Validation",
+            callback=self._on_export
         ))
 
     def _add_setup_section(self):
@@ -456,6 +508,48 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         """Called as the tween slider is dragged."""
         AniTween.apply_tween(bias, easing=easing)
 
+    def _on_duplicate(self, mode="overwrite"):
+        import maya.mel as mel
+        gPlayBackSlider = mel.eval('$tmpVar=$gPlayBackSlider')
+        if cmds.timeControl(gPlayBackSlider, query=True, rangeVisible=True):
+            time_range = cmds.timeControl(gPlayBackSlider, query=True, rangeArray=True)
+            start_frame = int(time_range[0])
+            end_frame = int(time_range[1])
+        else:
+            start_frame = int(cmds.currentTime(query=True))
+            end_frame = start_frame
+            
+        res = cmds.promptDialog(
+            title="Duplicate & Slide",
+            message="Enter target start frame:",
+            button=["OK", "Cancel"],
+            defaultButton="OK",
+            cancelButton="Cancel",
+            dismissString="Cancel",
+            text=str(end_frame + 1)
+        )
+        if res == "OK":
+            target_frame_str = cmds.promptDialog(query=True, text=True)
+            try:
+                target_frame = int(target_frame_str)
+                from anikin import AniDuplicate
+                AniDuplicate.duplicate_and_slide(start_frame, end_frame, target_frame, mode=mode)
+            except ValueError:
+                cmds.warning("AniDuplicate: Invalid frame number.")
+
+    def _on_cleanup(self, tolerance=0.01):
+        from anikin import AniCleanup
+        AniCleanup.cleanup_curves(tolerance=tolerance)
+
+    def _on_export(self):
+        import os
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export FBX", os.path.expanduser("~"), "FBX Files (*.fbx)"
+        )
+        if path:
+            from anikin import AniExport
+            AniExport.export_fbx(path)
+
 
 # ──────────────────────────────────────────────────────────────────────────────────
 # Launch / cleanup
@@ -502,7 +596,7 @@ def show_window():
         dockable=True,
         area="bottom",
         floating=False,
-        height=44,
+        height=52,
         width=900,
         label=AniKinWindow.WINDOW_TITLE,
     )
@@ -517,4 +611,3 @@ def show_window():
     print("[AniKin] Toolbar launched. v{}".format(
         __import__("anikin").__version__
     ))
-

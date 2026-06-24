@@ -1,4 +1,4 @@
-﻿"""
+"""
 AniHotkeys.py
 Hotkey management for AniKin tools.
 
@@ -131,6 +131,30 @@ BINDABLE_TOOLS = [
         "name": "Smooth Curves",
         "category": "Curves",
         "command": "import anikin.AniSmooth as sm; sm.smooth_curves()"
+    },
+    {
+        "id": "copy_pose",
+        "name": "Copy Pose",
+        "category": "Pose",
+        "command": "import anikin.AniMirror as mr; mr.copy_pose()"
+    },
+    {
+        "id": "paste_pose",
+        "name": "Paste Pose",
+        "category": "Pose",
+        "command": "import anikin.AniMirror as mr; mr.paste_pose()"
+    },
+    {
+        "id": "mirror_pose",
+        "name": "Mirror Pose",
+        "category": "Pose",
+        "command": "import anikin.AniMirror as mr; mr.mirror_pose()"
+    },
+    {
+        "id": "flip_pose",
+        "name": "Flip Pose",
+        "category": "Pose",
+        "command": "import anikin.AniMirror as mr; mr.flip_pose()"
     }
 ]
 
