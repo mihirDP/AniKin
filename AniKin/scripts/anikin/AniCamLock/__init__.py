@@ -105,6 +105,7 @@ class AniCamLockController:
         self._original_cam = None   # camera shape of original view
         self._temp_cam = None       # transform name of temp camera
         self._temp_cam_shape = None # shape name of temp camera
+        self._buffer_grp = None     # buffer group to avoid evaluation cycles
         self._target_object = None
         self._mode = 'track'        # 'track' or 'aim'
         self._constraints = []      # list of constraint node names
@@ -136,18 +137,24 @@ class AniCamLockController:
         temp_xform, temp_shape = create_temp_camera()
         match_camera_transform(orig_cam_xform, temp_xform)
 
-        # --- Apply constraint(s) ---
+        # --- Create buffer group ---
+        buffer_grp = cmds.group(empty=True, name='AniKin_CamLock_Buffer')
+        cmds.setAttr(buffer_grp + '.hiddenInOutliner', True)
+        match_camera_transform(orig_cam_xform, buffer_grp)
+        cmds.parent(temp_xform, buffer_grp)
+
+        # --- Apply constraint(s) to buffer group ---
         constraints = []
         if mode == 'track':
-            c = cmds.parentConstraint(target, temp_xform,
+            c = cmds.parentConstraint(target, buffer_grp,
                                       maintainOffset=True,
                                       name='AniKin_CamLock_pConst')[0]
             constraints.append(c)
         elif mode == 'aim':
-            c1 = cmds.pointConstraint(target, temp_xform,
+            c1 = cmds.pointConstraint(target, buffer_grp,
                                       maintainOffset=True,
                                       name='AniKin_CamLock_ptConst')[0]
-            c2 = cmds.aimConstraint(target, temp_xform,
+            c2 = cmds.aimConstraint(target, buffer_grp,
                                     aimVector=(0, 0, -1),
                                     upVector=(0, 1, 0),
                                     worldUpType='scene',
@@ -163,6 +170,7 @@ class AniCamLockController:
         self._original_cam = orig_cam_shape
         self._temp_cam = temp_xform
         self._temp_cam_shape = temp_shape
+        self._buffer_grp = buffer_grp
         self._target_object = target
         self._mode = mode
         self._constraints = constraints
@@ -187,20 +195,19 @@ class AniCamLockController:
             except Exception as e:
                 cmds.warning('AniCamLock: Could not restore camera — {}'.format(e))
 
-        # Delete constraints
-        for c in self._constraints:
-            if c and cmds.objExists(c):
-                try:
-                    cmds.delete(c)
-                except Exception:
-                    pass
-
-        # Delete temp camera
-        if self._temp_cam and cmds.objExists(self._temp_cam):
-            try:
-                cmds.delete(self._temp_cam)
-            except Exception:
-                pass
+        # Defer deletion of the camera and constraints to the next idle event.
+        # Deleting a camera immediately after lookThru corrupts the Viewport 2.0 
+        # evaluation state in the current frame, causing permanent glitching!
+        nodes_to_delete = [n for n in self._constraints + [self._temp_cam, self._buffer_grp] if n]
+        if nodes_to_delete:
+            def deferred_delete(nodes=nodes_to_delete):
+                for node in nodes:
+                    if cmds.objExists(node):
+                        try:
+                            cmds.delete(node)
+                        except Exception:
+                            pass
+            cmds.evalDeferred(deferred_delete)
 
         # Remove HUD
         hide_hud()
@@ -216,6 +223,7 @@ class AniCamLockController:
         self._original_cam = None
         self._temp_cam = None
         self._temp_cam_shape = None
+        self._buffer_grp = None
         self._target_object = None
         self._constraints = []
         self._script_jobs = []
