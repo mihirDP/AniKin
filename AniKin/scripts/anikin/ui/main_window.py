@@ -465,7 +465,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             callback=lambda: settings_panel.show_panel(active_tab=0, on_apply_callback=self.rebuild_toolbar)
         )
         settings_btn.set_context_menu([
-            ("Refresh Plugin (Reload)", lambda: __import__("anikin").reload_and_launch()),
+            ("Refresh Plugin (Reload)", lambda: _refresh_plugin()),
             ("Uninstall AniKin", self._uninstall_plugin)
         ])
         self.toolbar_layout.addWidget(settings_btn)
@@ -597,6 +597,19 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
 
 # Global reference prevents Python GC from destroying the widget
 _INSTANCE = None
+
+
+def _refresh_plugin():
+    """
+    Full purge-and-reimport of AniKin.
+    Works even when the previous load failed (stale/partial module cache).
+    """
+    import sys
+    mods_to_remove = [k for k in sys.modules if k.startswith("anikin")]
+    for k in mods_to_remove:
+        del sys.modules[k]
+    import anikin
+    anikin.launch()
 
 
 def _cleanup_existing():

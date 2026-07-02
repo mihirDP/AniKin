@@ -28,7 +28,7 @@ user's perspective view completely intact after unlock.
 """
 
 import maya.cmds as cmds
-from anikin.core.log import log
+from anikin.core.log import log_debug
 
 # ── Module state ──────────────────────────────────────────
 _state = {
@@ -120,7 +120,7 @@ def lock():
     # Apply once immediately so the user sees the lock take effect
     _on_frame_changed()
 
-    log("CamLock ON → tracking '{}'".format(target.split("|")[-1]))
+    log_debug("CamLock ON → tracking '{}'".format(target.split("|")[-1]))
     cmds.inViewMessage(
         amg="<hl>CamLock ON</hl>  —  tracking <hl>{}</hl>".format(
             target.split("|")[-1]
@@ -151,7 +151,7 @@ def unlock():
         if saved_r:
             cmds.xform(cam, worldSpace=True, rotation=saved_r)
 
-    log("CamLock OFF — camera restored.")
+    log_debug("CamLock OFF — camera restored.")
     cmds.inViewMessage(
         amg="<hl>CamLock OFF</hl>  —  camera restored.",
         pos="topCenter", fade=True, fadeStayTime=2000
