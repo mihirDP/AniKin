@@ -232,6 +232,13 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             ))
 
     def _add_timing_section(self):
+        # Cam-Lock-to-Object mode selector
+        self._cam_lock_mode = QtWidgets.QComboBox()
+        self._cam_lock_mode.addItems(["Track", "Aim"])
+        self._cam_lock_mode.setToolTip("Cam-Lock Mode: Track (offset) or Aim (focus)")
+        self._cam_lock_mode.setFixedWidth(60)
+        self.toolbar_layout.addWidget(self._cam_lock_mode)
+
         # Cam-Lock-to-Object toggle
         self._cam_lock_btn = ToggleToolButton(
             icon_a="cam_unlock",
@@ -535,7 +542,8 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     def _on_cam_lock_toggle(self, is_now_locked):
         """Toggle viewport cam-lock on the selected object."""
         if is_now_locked:
-            success = AniCamLock.lock()
+            mode = self._cam_lock_mode.currentText().lower()
+            success = AniCamLock.lock(mode=mode)
             if not success:
                 # Lock failed (nothing selected, etc.) — revert the button
                 self._cam_lock_btn.set_toggled(False)

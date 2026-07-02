@@ -3,210 +3,289 @@ AniCamLock — Viewport Camera Lock-to-Object
 ============================================
 
 Locks the active **viewport** camera to follow a selected object during
-animation playback.  Only the viewport's *modelPanel* look-through is
-changed — no scene cameras are created or modified.
+animation playback using Maya constraints (evaluates natively in the DG).
 
 Usage:
-    from anikin import AniCamLock
-    AniCamLock.toggle()       # Toggle lock / unlock
-    AniCamLock.is_locked()    # Query state
-
-How it works:
-    On **lock**:
-    1. The current viewport camera & its transform are stored.
-    2. A ``scriptJob`` (``timeChanged`` event) is created that, on every
-       frame change, moves/aims the viewport camera to track the target
-       object's world-space position while preserving the camera's relative
-       offset from the target.
-    On **unlock**:
-    3. The scriptJob is killed.
-    4. The viewport camera is restored to its pre-lock position/orientation.
-
-Design decision: We manipulate the *existing* viewport camera rather than
-creating a temporary one to avoid cluttering the Outliner and to keep the
-user's perspective view completely intact after unlock.
+    from anikin.AniCamLock import cam_lock_toggle
+    cam_lock_toggle(mode='track')
 """
 
 import maya.cmds as cmds
+from maya.api.OpenMaya import MMatrix
 from anikin.core.log import log_debug
 
-# ── Module state ──────────────────────────────────────────
-_state = {
-    "locked": False,
-    "target": None,
-    "script_job_id": None,
-    "panel": None,
-    "camera": None,
-    "camera_shape": None,
-    # Stored pre-lock camera transform so we can restore it on unlock
-    "saved_translate": None,
-    "saved_rotate": None,
-    # The offset between the camera and target at lock time
-    "offset_translate": None,
-    "offset_rotate": None,
-}
+HUD_NAME = 'AniKinCamLockHUD'
 
 
-def is_locked():
-    """Return True if cam-lock is currently active."""
-    return _state["locked"]
-
-
-def toggle():
-    """Toggle cam-lock on the current selection / active lock."""
-    if _state["locked"]:
-        unlock()
-    else:
-        lock()
-
-
-def lock():
-    """
-    Lock the viewport camera to follow the first selected object.
-
-    The camera maintains its current offset relative to the target
-    so it doesn't jump to a weird position on frame change.
-    """
-    sel = cmds.ls(selection=True, long=True)
-    if not sel:
-        cmds.inViewMessage(
-            amg="<hl>AniCamLock</hl>: Select an object to lock the viewport camera to.",
-            pos="topCenter", fade=True, fadeStayTime=2000
-        )
-        return False
-
-    target = sel[0]
-
-    # Get the active model panel and its camera
-    panel = _get_active_model_panel()
-    if panel is None:
-        cmds.warning("AniCamLock: No active 3D viewport found.")
-        return False
-
-    camera_shape = cmds.modelPanel(panel, query=True, camera=True)
-    # camera_shape might be transform or shape — normalise to transform
-    if cmds.objectType(camera_shape) == "camera":
-        camera = cmds.listRelatives(camera_shape, parent=True, fullPath=True)[0]
-    else:
-        camera = camera_shape
-        shapes = cmds.listRelatives(camera, shapes=True, fullPath=True, type="camera")
-        camera_shape = shapes[0] if shapes else camera
-
-    # Save current camera transform for restoring later
-    saved_t = cmds.xform(camera, query=True, worldSpace=True, translation=True)
-    saved_r = cmds.xform(camera, query=True, worldSpace=True, rotation=True)
-
-    # Compute offset between camera and target at lock time
-    target_t = cmds.xform(target, query=True, worldSpace=True,
-                          rotatePivot=True)
-    offset_t = [saved_t[i] - target_t[i] for i in range(3)]
-
-    _state.update({
-        "locked": True,
-        "target": target,
-        "panel": panel,
-        "camera": camera,
-        "camera_shape": camera_shape,
-        "saved_translate": saved_t,
-        "saved_rotate": saved_r,
-        "offset_translate": offset_t,
-        "offset_rotate": list(saved_r),
-    })
-
-    # Create scriptJob so camera tracks target on every frame change
-    job_id = cmds.scriptJob(event=["timeChanged", _on_frame_changed])
-    _state["script_job_id"] = job_id
-
-    # Apply once immediately so the user sees the lock take effect
-    _on_frame_changed()
-
-    log_debug("CamLock ON → tracking '{}'".format(target.split("|")[-1]))
-    cmds.inViewMessage(
-        amg="<hl>CamLock ON</hl>  —  tracking <hl>{}</hl>".format(
-            target.split("|")[-1]
-        ),
-        pos="topCenter", fade=True, fadeStayTime=2000
+def show_hud(object_name):
+    if cmds.headsUpDisplay(HUD_NAME, exists=True):
+        cmds.headsUpDisplay(HUD_NAME, remove=True)
+    cmds.headsUpDisplay(
+        HUD_NAME,
+        section=5,              # top-center section
+        block=0,
+        blockSize='medium',
+        label='AniCamLock: ON  [{}]'.format(object_name),
+        labelFontSize='large',
+        dataFontSize='large',
     )
-    return True
 
 
-def unlock():
-    """Unlock the viewport camera and restore its pre-lock position."""
-    # Kill the scriptJob
-    job_id = _state.get("script_job_id")
-    if job_id is not None:
+def hide_hud():
+    if cmds.headsUpDisplay(HUD_NAME, exists=True):
+        cmds.headsUpDisplay(HUD_NAME, remove=True)
+
+
+def get_active_panel_and_camera():
+    """
+    Returns (panel_name, camera_transform, camera_shape) for the
+    currently focused model panel.
+    Returns (None, None, None) if no model panel is active.
+    """
+    panel = cmds.getPanel(withFocus=True)
+
+    # Validate it's a model panel (3D viewport), not UV editor etc.
+    if cmds.getPanel(typeOf=panel) != 'modelPanel':
+        # Fall back: find the first visible model panel
+        all_panels = cmds.getPanel(type='modelPanel') or []
+        if not all_panels:
+            return None, None, None
+        panel = all_panels[0]
+
+    # modelEditor gives us the camera SHAPE name
+    cam_shape = cmds.modelEditor(panel, query=True, camera=True)
+
+    # Get the transform (parent) of the shape
+    if cmds.nodeType(cam_shape) != 'transform':
+        cam_transform = cmds.listRelatives(cam_shape, parent=True, fullPath=True)[0]
+    else:
+        cam_transform = cam_shape
+        shapes = cmds.listRelatives(cam_transform, shapes=True, fullPath=True, type="camera")
+        cam_shape = shapes[0] if shapes else cam_transform
+
+    return panel, cam_transform, cam_shape
+
+
+def get_world_matrix(node):
+    """Returns the 4x4 world-space matrix of a transform node as MMatrix."""
+    return MMatrix(cmds.xform(node, query=True, matrix=True, worldSpace=True))
+
+
+def create_temp_camera(name='AniKin_CamLock_temp'):
+    """
+    Creates a camera transform+shape pair.
+    Returns (transform_name, shape_name).
+    """
+    result = cmds.camera(name=name)
+    transform = result[0]
+    shape = result[1]
+    # Hide from the outliner's default display to keep scene clean
+    cmds.setAttr(transform + '.hiddenInOutliner', True)
+    return transform, shape
+
+
+def match_camera_transform(source_cam_transform, target_cam_transform):
+    """
+    Moves target_cam to the exact world-space position and orientation
+    of source_cam. Uses xform matrix for rotation-order safety.
+    """
+    matrix = cmds.xform(source_cam_transform, query=True, matrix=True, worldSpace=True)
+    cmds.xform(target_cam_transform, matrix=matrix, worldSpace=True)
+
+
+class AniCamLockController:
+    """
+    Manages the Cam Lock state for AniKin.
+    Singleton pattern: only one lock active at a time.
+    """
+
+    def __init__(self):
+        self._locked = False
+        self._panel = None
+        self._original_cam = None   # camera shape of original view
+        self._temp_cam = None       # transform name of temp camera
+        self._temp_cam_shape = None # shape name of temp camera
+        self._target_object = None
+        self._mode = 'track'        # 'track' or 'aim'
+        self._constraints = []      # list of constraint node names
+        self._script_jobs = []
+
+    @property
+    def is_locked(self):
+        return self._locked
+
+    def lock(self, mode='track'):
+        if self._locked:
+            cmds.warning('AniCamLock: Already locked. Click again to unlock.')
+            return False
+
+        # --- Validate selection ---
+        selection = cmds.ls(selection=True, long=True)
+        if not selection:
+            cmds.warning('AniCamLock: Select an object to lock onto first.')
+            return False
+        target = selection[0]
+
+        # --- Get active panel + camera ---
+        panel, orig_cam_xform, orig_cam_shape = get_active_panel_and_camera()
+        if not panel:
+            cmds.warning('AniCamLock: No active 3D viewport found.')
+            return False
+
+        # --- Create and position temp camera ---
+        temp_xform, temp_shape = create_temp_camera()
+        match_camera_transform(orig_cam_xform, temp_xform)
+
+        # --- Apply constraint(s) ---
+        constraints = []
+        if mode == 'track':
+            c = cmds.parentConstraint(target, temp_xform,
+                                      maintainOffset=True,
+                                      name='AniKin_CamLock_pConst')[0]
+            constraints.append(c)
+        elif mode == 'aim':
+            c1 = cmds.pointConstraint(target, temp_xform,
+                                      maintainOffset=True,
+                                      name='AniKin_CamLock_ptConst')[0]
+            c2 = cmds.aimConstraint(target, temp_xform,
+                                    aimVector=(0, 0, -1),
+                                    upVector=(0, 1, 0),
+                                    worldUpType='scene',
+                                    name='AniKin_CamLock_aimConst')[0]
+            constraints.extend([c1, c2])
+
+        # --- Switch viewport ---
+        cmds.lookThru(panel, temp_shape)
+
+        # --- Store state ---
+        self._locked = True
+        self._panel = panel
+        self._original_cam = orig_cam_shape
+        self._temp_cam = temp_xform
+        self._temp_cam_shape = temp_shape
+        self._target_object = target
+        self._mode = mode
+        self._constraints = constraints
+
+        short_name = target.split("|")[-1]
+        show_hud(short_name)
+        log_debug("CamLock ON → tracking '{}' (mode: {})".format(short_name, mode))
+
+        # Register script jobs to handle edge cases
+        self._register_script_jobs()
+
+        return True
+
+    def unlock(self):
+        if not self._locked:
+            return
+
+        # Restore original camera view
+        if self._panel and self._original_cam:
+            try:
+                cmds.lookThru(self._panel, self._original_cam)
+            except Exception as e:
+                cmds.warning('AniCamLock: Could not restore camera — {}'.format(e))
+
+        # Delete constraints
+        for c in self._constraints:
+            if c and cmds.objExists(c):
+                try:
+                    cmds.delete(c)
+                except Exception:
+                    pass
+
+        # Delete temp camera
+        if self._temp_cam and cmds.objExists(self._temp_cam):
+            try:
+                cmds.delete(self._temp_cam)
+            except Exception:
+                pass
+
+        # Remove HUD
+        hide_hud()
+        
+        # Kill script jobs
+        self._kill_script_jobs()
+
+        log_debug("CamLock OFF — camera restored.")
+
+        # Reset state
+        self._locked = False
+        self._panel = None
+        self._original_cam = None
+        self._temp_cam = None
+        self._temp_cam_shape = None
+        self._target_object = None
+        self._constraints = []
+        self._script_jobs = []
+
+    def toggle(self, mode='track'):
+        if self._locked:
+            self.unlock()
+            return False
+        else:
+            return self.lock(mode=mode)
+            
+    def _register_script_jobs(self):
+        # Auto unlock if target is deleted
+        if self._target_object and cmds.objExists(self._target_object):
+            sj_del = cmds.scriptJob(nodeDeleted=[self._target_object, self._on_target_deleted])
+            self._script_jobs.append(sj_del)
+            
+        # Auto unlock on scene change
+        sj_open = cmds.scriptJob(event=['SceneOpened', self._on_scene_changed])
+        sj_new = cmds.scriptJob(event=['NewSceneOpened', self._on_scene_changed])
+        self._script_jobs.extend([sj_open, sj_new])
+
+    def _kill_script_jobs(self):
+        for sj in self._script_jobs:
+            if cmds.scriptJob(exists=sj):
+                try:
+                    cmds.scriptJob(kill=sj, force=True)
+                except Exception:
+                    pass
+        self._script_jobs = []
+
+    def _on_target_deleted(self):
+        cmds.warning('AniCamLock: Target object was deleted. Lock released.')
+        self.unlock()
+        
+        # We need to notify the UI to update the toggle button state
+        # A simple broadcast or finding the UI
         try:
-            if cmds.scriptJob(exists=job_id):
-                cmds.scriptJob(kill=job_id, force=True)
+            from anikin.ui.main_window import _INSTANCE
+            if _INSTANCE and hasattr(_INSTANCE, '_cam_lock_btn'):
+                _INSTANCE._cam_lock_btn.set_toggled(False)
         except Exception:
             pass
 
-    # Restore camera position
-    cam = _state.get("camera")
-    if cam and cmds.objExists(cam):
-        saved_t = _state.get("saved_translate")
-        saved_r = _state.get("saved_rotate")
-        if saved_t:
-            cmds.xform(cam, worldSpace=True, translation=saved_t)
-        if saved_r:
-            cmds.xform(cam, worldSpace=True, rotation=saved_r)
+    def _on_scene_changed(self):
+        # Silent unlock on scene change
+        self.unlock()
+        try:
+            from anikin.ui.main_window import _INSTANCE
+            if _INSTANCE and hasattr(_INSTANCE, '_cam_lock_btn'):
+                _INSTANCE._cam_lock_btn.set_toggled(False)
+        except Exception:
+            pass
 
-    log_debug("CamLock OFF — camera restored.")
-    cmds.inViewMessage(
-        amg="<hl>CamLock OFF</hl>  —  camera restored.",
-        pos="topCenter", fade=True, fadeStayTime=2000
-    )
+# Module-level singleton
+_cam_lock = AniCamLockController()
 
-    # Reset state
-    _state.update({
-        "locked": False,
-        "target": None,
-        "script_job_id": None,
-        "panel": None,
-        "camera": None,
-        "camera_shape": None,
-        "saved_translate": None,
-        "saved_rotate": None,
-        "offset_translate": None,
-        "offset_rotate": None,
-    })
+def lock(mode='track'):
+    return _cam_lock.lock(mode=mode)
 
+def unlock():
+    _cam_lock.unlock()
+    
+def is_locked():
+    return _cam_lock.is_locked
 
-# ── Internal helpers ─────────────────────────────────────────
+def toggle(mode='track'):
+    """Entry point called by the UI button."""
+    return _cam_lock.toggle(mode=mode)
 
-def _on_frame_changed():
-    """
-    Called by scriptJob on every time change.
-    Moves the viewport camera so it maintains its relative offset to the target.
-    """
-    target = _state.get("target")
-    cam = _state.get("camera")
-    offset_t = _state.get("offset_translate")
-
-    if not target or not cam or offset_t is None:
-        return
-    if not cmds.objExists(target) or not cmds.objExists(cam):
-        # Target was deleted — auto-unlock
-        unlock()
-        return
-
-    # Get current target world position
-    target_pos = cmds.xform(target, query=True, worldSpace=True,
-                            rotatePivot=True)
-
-    # New camera position = target position + original offset
-    new_t = [target_pos[i] + offset_t[i] for i in range(3)]
-    cmds.xform(cam, worldSpace=True, translation=new_t)
-
-
-def _get_active_model_panel():
-    """Return the name of the active modelPanel (3D viewport), or None."""
-    panel = cmds.getPanel(withFocus=True)
-    if panel and cmds.getPanel(typeOf=panel) == "modelPanel":
-        return panel
-
-    # Fallback: find the first visible model panel
-    for p in cmds.getPanel(type="modelPanel") or []:
-        if cmds.modelPanel(p, query=True, exists=True):
-            return p
-    return None
+# Keep the same interface that UI expects
+def cam_lock_toggle(mode='track'):
+    return _cam_lock.toggle(mode=mode)
