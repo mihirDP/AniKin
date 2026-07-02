@@ -193,6 +193,97 @@ class ToolButton(QtWidgets.QPushButton):
 
 
 # ─────────────────────────────────────────────────────────
+# Toggle Tool Button — swappable icon states
+# ─────────────────────────────────────────────────────────
+
+class ToggleToolButton(ToolButton):
+    """
+    A ToolButton with two visual states (A / B).
+
+    On each click the icon, tooltip, and optional accent border swap,
+    giving the user immediate feedback on the current state.
+
+    Args:
+        icon_a / icon_b: SVG filename stems for the two states.
+        tooltip_a / tooltip_b: Tooltips for each state.
+        callback: Called on every click with the *new* ``toggled`` bool
+                  (True = state B, False = state A).
+        start_toggled: If True, start in state B.
+        accent_a / accent_b: Whether each state uses accent styling.
+    """
+
+    _ICONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
+
+    def __init__(self, icon_a, icon_b, tooltip_a="", tooltip_b="",
+                 callback=None, start_toggled=False,
+                 accent_a=False, accent_b=False, parent=None):
+        # Initialise base class with state-A icon (no callback yet)
+        super(ToggleToolButton, self).__init__(
+            icon_a, tooltip=tooltip_a, callback=None,
+            accent=accent_a, parent=parent
+        )
+
+        self._icon_a_path = self._find_icon(icon_a)
+        self._icon_b_path = self._find_icon(icon_b)
+        self._tooltip_a = tooltip_a
+        self._tooltip_b = tooltip_b
+        self._accent_a = accent_a
+        self._accent_b = accent_b
+        self._toggled = False
+        self._user_callback = callback
+
+        # Connect our own handler
+        self.clicked.connect(self._on_clicked)
+
+        if start_toggled:
+            self._toggled = True
+            self._apply_state()
+
+    # ── helpers ────────────────────────────────────────────
+    def _find_icon(self, label):
+        for ext in (".svg", ".png"):
+            path = os.path.join(self._ICONS_DIR, label + ext)
+            if os.path.exists(path):
+                return path
+        return None
+
+    def _apply_state(self):
+        """Apply the current state's icon, tooltip, and accent."""
+        if self._toggled:
+            icon_path = self._icon_b_path
+            tip = self._tooltip_b
+            accent = self._accent_b
+        else:
+            icon_path = self._icon_a_path
+            tip = self._tooltip_a
+            accent = self._accent_a
+
+        if icon_path:
+            self.setIcon(QtGui.QIcon(icon_path))
+        self.setToolTip(tip)
+        self.setProperty("accent", accent)
+        # Force style refresh
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
+    def _on_clicked(self):
+        self._toggled = not self._toggled
+        self._apply_state()
+        if self._user_callback:
+            self._user_callback(self._toggled)
+
+    def set_toggled(self, state):
+        """Programmatically set the toggle state without firing the callback."""
+        self._toggled = bool(state)
+        self._apply_state()
+
+    def is_toggled(self):
+        """Return the current toggle state."""
+        return self._toggled
+
+
+# ─────────────────────────────────────────────────────────
 # Tween / Ease Slider  — compact, color-coded
 # ─────────────────────────────────────────────────────────
 

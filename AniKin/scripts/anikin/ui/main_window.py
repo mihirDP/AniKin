@@ -24,7 +24,7 @@ from anikin.core.qt_compat import (
 )
 from anikin.ui.theme import STYLESHEET
 from anikin.ui.widgets import (
-    SectionSeparator, ToolButton, TweenSlider, FlowLayout
+    SectionSeparator, ToolButton, ToggleToolButton, TweenSlider, FlowLayout
 )
 
 # Tool imports
@@ -40,6 +40,7 @@ from anikin import AniMotion
 from anikin import AniGhost
 from anikin import AniMirror
 from anikin import AniKeyNav
+from anikin import AniCamLock
 from anikin import AniBookmarks
 from anikin import AniWave
 from anikin import AniNoise
@@ -231,11 +232,29 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             ))
 
     def _add_timing_section(self):
-        # Play/Pause Animation
-        self.toolbar_layout.addWidget(ToolButton(
-            "play_pause", "Play / Pause Animation",
-            callback=lambda: cmds.play(state=not cmds.play(query=True, state=True))
-        ))
+        # Cam-Lock-to-Object toggle
+        self._cam_lock_btn = ToggleToolButton(
+            icon_a="cam_unlock",
+            icon_b="cam_lock",
+            tooltip_a="Cam-Lock: Click to lock viewport camera on selected object",
+            tooltip_b="Cam-Lock: Click to unlock and restore camera",
+            callback=self._on_cam_lock_toggle,
+            accent_a=False,
+            accent_b=True,
+        )
+        self.toolbar_layout.addWidget(self._cam_lock_btn)
+
+        # Play / Pause Animation (icon-swapping toggle)
+        self._play_btn = ToggleToolButton(
+            icon_a="play",
+            icon_b="pause",
+            tooltip_a="Play Animation",
+            tooltip_b="Pause Animation",
+            callback=self._on_play_pause_toggle,
+            accent_a=False,
+            accent_b=True,
+        )
+        self.toolbar_layout.addWidget(self._play_btn)
         
         # Key navigation: prev/next key, first/last key
         self.toolbar_layout.addWidget(ToolButton(
@@ -501,6 +520,27 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             cmds.inViewMessage(amg="AniKin uninstalled successfully.", pos="topCenter", fade=True, fadeStayTime=3000)
 
 
+
+    # ── Play / Pause callback ───────────────────────────────────────
+
+    def _on_play_pause_toggle(self, is_now_playing):
+        """Toggle Maya playback. ``is_now_playing`` is the *new* toggled state."""
+        if is_now_playing:
+            cmds.play(forward=True)
+        else:
+            cmds.play(state=False)
+
+    # ── Cam-Lock callback ────────────────────────────────────────
+
+    def _on_cam_lock_toggle(self, is_now_locked):
+        """Toggle viewport cam-lock on the selected object."""
+        if is_now_locked:
+            success = AniCamLock.lock()
+            if not success:
+                # Lock failed (nothing selected, etc.) — revert the button
+                self._cam_lock_btn.set_toggled(False)
+        else:
+            AniCamLock.unlock()
 
     # ── Tween callback ──────────────────────────────────────────
 
