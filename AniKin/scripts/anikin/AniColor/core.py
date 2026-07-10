@@ -173,7 +173,7 @@ def add_key_to_marker(palette_id, frame):
     if not cmds.objExists(name):
         return
     cmds.setKeyframe(name, time=(frame,), value=1.0,
-                     inTangentType="step", outTangentType="step")
+                     outTangentType="step")
 
 
 def remove_key_from_marker(palette_id, frame):

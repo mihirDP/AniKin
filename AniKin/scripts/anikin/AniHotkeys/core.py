@@ -238,7 +238,14 @@ def apply_hotkey(tool_id, shortcut_str):
         )
 
     # 3. Setup nameCommand
-    if not cmds.nameCommand(name_cmd_name, exists=True):
+    is_name_cmd = False
+    try:
+        if cmds.nameCommand(name_cmd_name, query=True, command=True):
+            is_name_cmd = True
+    except Exception:
+        pass
+
+    if not is_name_cmd:
         cmds.nameCommand(
             name_cmd_name,
             annotation=tool["name"],

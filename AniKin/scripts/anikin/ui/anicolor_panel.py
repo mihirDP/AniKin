@@ -8,6 +8,7 @@ Follows AniKin's established design system.
 
 import os
 import maya.cmds as cmds
+import traceback
 
 from anikin.core.qt_compat import QtWidgets, QtCore, QtGui, get_maya_main_window
 from anikin.ui.theme import (
@@ -21,6 +22,14 @@ from anikin.AniColor import overlay as ac_overlay
 from anikin.AniColor import hud as ac_hud
 from anikin.AniColor import export as ac_export
 
+# Global variable to track "Do not show again" preference for Unassign
+_UNASSIGN_PROMPT_DO_NOT_SHOW = False
+
+def _icon_path(name):
+    return os.path.join(os.path.dirname(__file__), "..", "icons", name)
+
+def _create_icon(name):
+    return QtGui.QIcon(_icon_path(name))
 
 def _color_swatch_pixmap(rgb, size=14):
     """Create a circular color swatch pixmap."""
@@ -43,11 +52,16 @@ class AniColorPanel(QtWidgets.QDialog):
         super(AniColorPanel, self).__init__(parent or get_maya_main_window())
         self.setWindowTitle("AniKin — AniColor")
         self.setObjectName("AniKinColorPanel")
-        self.setMinimumSize(340, 480)
+        self.setMinimumSize(420, 560)
         self.setStyleSheet(STYLESHEET)
 
         # Initialise default palette if needed
         ac_core.initialize_default_palette()
+
+        self._assign_buttons = {}  # palette_id -> (btn, is_assigned)
+        self._footer_assign_btn = None
+        self._selected_palette_id = None
+        self._script_job = None
 
         self._build_ui()
         self._refresh_palette_tab()
@@ -56,6 +70,10 @@ class AniColorPanel(QtWidgets.QDialog):
         # Enable HUD and overlay
         ac_hud.enable_hud()
         ac_overlay.create_overlay()
+        
+        # Track time changes to update assign/unassign states
+        self._script_job = cmds.scriptJob(event=["timeChanged", self._update_assign_states], protected=True)
+        self._update_assign_states()
 
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
@@ -86,6 +104,29 @@ class AniColorPanel(QtWidgets.QDialog):
         self._export_tab = QtWidgets.QWidget()
         self._build_export_tab()
         self.tabs.addTab(self._export_tab, "Export")
+        
+        # ── Footer ────────────────────────────────────────
+        footer = QtWidgets.QHBoxLayout()
+        footer.setContentsMargins(4, 8, 4, 4)
+        
+        info_icon = QtWidgets.QLabel()
+        info_icon.setPixmap(QtGui.QPixmap(_icon_path("info.svg")).scaled(16, 16, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+        footer.addWidget(info_icon)
+        
+        info_text = QtWidgets.QLabel("Assign the current timeline selection to the selected color slot.")
+        info_text.setStyleSheet("color: {};".format(TEXT_SECONDARY))
+        footer.addWidget(info_text)
+        
+        footer.addStretch()
+        
+        self._footer_assign_btn = QtWidgets.QPushButton("  Assign Selection")
+        self._footer_assign_btn.setIcon(_create_icon("box_select.svg"))
+        self._footer_assign_btn.setFixedHeight(30)
+        self._footer_assign_btn.setProperty("accent", True)
+        self._footer_assign_btn.clicked.connect(self._on_footer_assign_clicked)
+        footer.addWidget(self._footer_assign_btn)
+        
+        layout.addLayout(footer)
 
     # ══════════════════════════════════════════════════════
     #  TAB 1 — PALETTE
@@ -98,8 +139,8 @@ class AniColorPanel(QtWidgets.QDialog):
 
         # Header row
         header = QtWidgets.QHBoxLayout()
-        title = QtWidgets.QLabel("Color Palette")
-        title.setProperty("header", True)
+        title = QtWidgets.QLabel("COLOR PALETTE")
+        title.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(ACCENT))
         header.addWidget(title)
         header.addStretch()
 
@@ -108,6 +149,33 @@ class AniColorPanel(QtWidgets.QDialog):
         add_btn.setFixedWidth(80)
         header.addWidget(add_btn)
         layout.addLayout(header)
+        
+        # Table Headers
+        table_header = QtWidgets.QHBoxLayout()
+        table_header.setContentsMargins(12, 8, 12, 8)
+        table_header.setSpacing(8)
+        
+        lbl_color = QtWidgets.QLabel("Color")
+        lbl_color.setFixedWidth(30)
+        table_header.addWidget(lbl_color)
+        
+        lbl_label = QtWidgets.QLabel("Label")
+        table_header.addWidget(lbl_label)
+        table_header.addStretch()
+        
+        def _th(text, width):
+            lbl = QtWidgets.QLabel(text)
+            lbl.setAlignment(QtCore.Qt.AlignCenter)
+            lbl.setFixedWidth(width)
+            table_header.addWidget(lbl)
+            
+        _th("Actions", 40)
+        _th("Visible", 40)
+        _th("Assign", 40)
+        _th("Count", 40)
+        _th("Delete", 40)
+        
+        layout.addLayout(table_header)
 
         # Scrollable palette slots
         scroll = QtWidgets.QScrollArea()
@@ -123,6 +191,8 @@ class AniColorPanel(QtWidgets.QDialog):
 
     def _refresh_palette_tab(self):
         """Rebuild palette slot rows from data."""
+        self._assign_buttons.clear()
+        
         # Clear existing widgets (except the terminal stretch)
         while self._palette_layout.count() > 1:
             item = self._palette_layout.takeAt(0)
@@ -132,29 +202,38 @@ class AniColorPanel(QtWidgets.QDialog):
                 w.deleteLater()
 
         palettes = ac_palette.get_palettes()
+        if palettes and not self._selected_palette_id:
+            self._selected_palette_id = palettes[0]["id"]
+            
         for pal in palettes:
             row = self._create_palette_row(pal)
             self._palette_layout.insertWidget(
                 self._palette_layout.count() - 1, row)
+                
+        self._update_assign_states()
 
     def _create_palette_row(self, pal):
         """Create a single palette slot row widget."""
         row = QtWidgets.QFrame()
+        bg_color = BACKGROUND_SECTION
+        if pal["id"] == self._selected_palette_id:
+            bg_color = "#2c333a" # Slightly highlighted
+            
         row.setStyleSheet(
-            "QFrame {{ background: {}; border-radius: 3px; }}"
-            .format(BACKGROUND_SECTION))
-        row.setFixedHeight(36)
+            "QFrame {{ background: {}; border-radius: 4px; border: 1px solid {}; }}"
+            .format(bg_color, BORDER))
+        row.setFixedHeight(40)
 
         h = QtWidgets.QHBoxLayout(row)
-        h.setContentsMargins(4, 2, 4, 2)
-        h.setSpacing(6)
+        h.setContentsMargins(8, 4, 8, 4)
+        h.setSpacing(8)
 
-        # Color swatch (clickable)
+        # Color swatch (QFrame clickable)
         swatch = QtWidgets.QPushButton()
-        swatch.setFixedSize(20, 20)
+        swatch.setFixedSize(24, 24)
         rgb = pal["color"]
         swatch.setStyleSheet(
-            "background-color: rgb({},{},{}); border-radius: 10px; border: none;"
+            "background-color: rgb({},{},{}); border-radius: 6px; border: none;"
             .format(int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255)))
         swatch.setToolTip("Click to change color")
         swatch.clicked.connect(lambda _, pid=pal["id"]: self._change_color(pid))
@@ -163,46 +242,147 @@ class AniColorPanel(QtWidgets.QDialog):
         # Slot name (editable)
         name_edit = QtWidgets.QLineEdit(pal.get("name", ""))
         name_edit.setPlaceholderText("Slot name...")
-        name_edit.setFixedHeight(22)
+        name_edit.setFixedHeight(26)
+        name_edit.setStyleSheet("QLineEdit { background: #1a1a1a; border-radius: 4px; padding-left: 6px; border: none; }")
         name_edit.editingFinished.connect(
             lambda ne=name_edit, pid=pal["id"]: self._rename_slot(pid, ne.text()))
+        
+        # When clicking the line edit, select the row
+        name_edit.selectionChanged.connect(lambda pid=pal["id"]: self._select_row(pid))
         h.addWidget(name_edit)
+        h.addStretch()
 
-        # Assign button
-        assign_btn = QtWidgets.QPushButton("Assign")
-        assign_btn.setFixedSize(50, 22)
-        assign_btn.setToolTip("Assign current timeline selection to this slot")
-        assign_btn.clicked.connect(
-            lambda _, pid=pal["id"]: self._assign_to_slot(pid))
+        # Action Buttons (Tool buttons 30x30)
+        def _tool_btn(icon_name, tooltip, callback):
+            btn = QtWidgets.QToolButton()
+            btn.setIcon(_create_icon(icon_name))
+            btn.setFixedSize(30, 30)
+            btn.setToolTip(tooltip)
+            btn.setStyleSheet("QToolButton { background: transparent; border: none; border-radius: 4px; } QToolButton:hover { background: #4a4a4a; }")
+            btn.clicked.connect(callback)
+            return btn
+
+        # Edit button
+        edit_btn = _tool_btn("edit.svg", "Edit Name", lambda _, ne=name_edit: ne.setFocus())
+        h.addWidget(edit_btn)
+        h.addSpacing(10)
+
+        # Visibility toggle
+        is_visible = pal.get("visible", True)
+        vis_icon = "eye.svg" if is_visible else "eye_off.svg"
+        vis_btn = _tool_btn(vis_icon, "Toggle visibility", lambda _, pid=pal["id"]: self._toggle_visibility(pid))
+        h.addWidget(vis_btn)
+        h.addSpacing(10)
+
+        # Assign / Unassign button
+        assign_btn = _tool_btn("box_select.svg", "Assign to current frame", lambda _, pid=pal["id"]: self._on_assign_clicked(pid))
+        self._assign_buttons[pal["id"]] = assign_btn
         h.addWidget(assign_btn)
+        h.addSpacing(10)
 
         # Frame count badge
         count = ac_palette.get_frame_count_for_palette(pal["id"])
         badge = QtWidgets.QLabel(str(count))
         badge.setAlignment(QtCore.Qt.AlignCenter)
-        badge.setFixedSize(32, 18)
+        badge.setFixedSize(32, 20)
         badge.setStyleSheet(
-            "background: #2a3038; border-radius: 9px; color: {}; font-size: 9px;"
-            .format(TEXT_PRIMARY))
+            "background: #1e252d; border-radius: 8px; color: {}; font-size: 11px; font-weight: bold;"
+            .format(ACCENT))
         h.addWidget(badge)
-
-        # Visibility toggle
-        vis_btn = QtWidgets.QPushButton("👁" if pal.get("visible", True) else "—")
-        vis_btn.setFixedSize(24, 22)
-        vis_btn.setToolTip("Toggle visibility")
-        vis_btn.clicked.connect(
-            lambda _, pid=pal["id"]: self._toggle_visibility(pid))
-        h.addWidget(vis_btn)
+        h.addSpacing(10)
 
         # Delete button
-        del_btn = QtWidgets.QPushButton("✕")
-        del_btn.setFixedSize(22, 22)
-        del_btn.setToolTip("Delete slot")
-        del_btn.clicked.connect(
-            lambda _, pid=pal["id"]: self._delete_slot(pid))
+        del_btn = _tool_btn("trash.svg", "Delete slot", lambda _, pid=pal["id"]: self._delete_slot(pid))
         h.addWidget(del_btn)
 
         return row
+
+    def _select_row(self, palette_id):
+        if self._selected_palette_id != palette_id:
+            self._selected_palette_id = palette_id
+            self._refresh_palette_tab()
+
+    def _update_assign_states(self):
+        """Update assign/unassign icons based on current frame data."""
+        if not hasattr(self, "_assign_buttons"): return
+        
+        # Get current frame data
+        frame = int(cmds.currentTime(query=True))
+        data = ac_frames.get_frame_data(frame)
+        active_pid = data.get("palette_id") if data else None
+        
+        for pid, btn in self._assign_buttons.items():
+            if pid == active_pid:
+                btn.setIcon(_create_icon("box_unselect.svg"))
+                btn.setToolTip("Unassign from current frame")
+            else:
+                btn.setIcon(_create_icon("box_select.svg"))
+                btn.setToolTip("Assign to current frame")
+                
+        # Update footer button based on selected palette
+        if self._footer_assign_btn and self._selected_palette_id:
+            if self._selected_palette_id == active_pid:
+                self._footer_assign_btn.setText("  Unassign Selection")
+                self._footer_assign_btn.setIcon(_create_icon("box_unselect.svg"))
+                self._footer_assign_btn.setStyleSheet("background-color: #f44336;") # Red accent
+            else:
+                self._footer_assign_btn.setText("  Assign Selection")
+                self._footer_assign_btn.setIcon(_create_icon("box_select.svg"))
+                self._footer_assign_btn.setStyleSheet("") # Default accent
+
+    def _on_assign_clicked(self, palette_id):
+        """Handle assign/unassign logic with caution prompt."""
+        frame = int(cmds.currentTime(query=True))
+        data = ac_frames.get_frame_data(frame)
+        
+        if data and data.get("palette_id") == palette_id:
+            # It's currently assigned to this slot -> UNASSIGN
+            self._perform_unassign(frame)
+        else:
+            # ASSIGN
+            self._select_row(palette_id)
+            ac_frames.assign_selection_to_palette(palette_id)
+            self._refresh_palette_tab()
+            self._refresh_frames_tab()
+            ac_overlay.refresh_overlay()
+
+    def _on_footer_assign_clicked(self):
+        """Handle the big footer button click."""
+        if not self._selected_palette_id:
+            return
+        self._on_assign_clicked(self._selected_palette_id)
+
+    def _perform_unassign(self, frame):
+        """Show caution dialog if needed, then unassign."""
+        global _UNASSIGN_PROMPT_DO_NOT_SHOW
+        
+        if not _UNASSIGN_PROMPT_DO_NOT_SHOW:
+            # Custom caution dialog with checkbox
+            msg_box = QtWidgets.QMessageBox(self)
+            msg_box.setWindowTitle("Confirm Unassign")
+            msg_box.setText("Are you sure you want to unassign this color from the current selection?")
+            msg_box.setIcon(QtWidgets.QMessageBox.Warning)
+            
+            proceed_btn = msg_box.addButton("Proceed", QtWidgets.QMessageBox.AcceptRole)
+            cancel_btn = msg_box.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+            
+            checkbox = QtWidgets.QCheckBox("Do not show again")
+            msg_box.setCheckBox(checkbox)
+            
+            msg_box.exec_()
+            
+            if msg_box.clickedButton() == cancel_btn:
+                return
+                
+            if checkbox.isChecked():
+                _UNASSIGN_PROMPT_DO_NOT_SHOW = True
+                
+        # Perform unassign
+        # If it's a range, we'd need to handle range removal, but for now we remove current frame
+        ac_frames.remove_frame(frame)
+        self._refresh_palette_tab()
+        self._refresh_frames_tab()
+        ac_overlay.refresh_overlay()
 
     def _add_palette_slot(self):
         result = ac_palette.add_palette_slot()
@@ -213,6 +393,7 @@ class AniColorPanel(QtWidgets.QDialog):
         pal = ac_palette.get_palette_by_id(palette_id)
         if not pal:
             return
+        self._select_row(palette_id)
         rgb = pal["color"]
         initial = QtGui.QColor.fromRgbF(rgb[0], rgb[1], rgb[2])
         color = QtWidgets.QColorDialog.getColor(initial, self, "Pick Slot Color")
@@ -224,12 +405,7 @@ class AniColorPanel(QtWidgets.QDialog):
 
     def _rename_slot(self, palette_id, new_name):
         ac_palette.rename_palette_slot(palette_id, new_name)
-
-    def _assign_to_slot(self, palette_id):
-        ac_frames.assign_selection_to_palette(palette_id)
         self._refresh_palette_tab()
-        self._refresh_frames_tab()
-        ac_overlay.refresh_overlay()
 
     def _toggle_visibility(self, palette_id):
         ac_palette.toggle_palette_visibility(palette_id)
@@ -237,6 +413,7 @@ class AniColorPanel(QtWidgets.QDialog):
         ac_overlay.refresh_overlay()
 
     def _delete_slot(self, palette_id):
+        self._select_row(palette_id)
         result = cmds.confirmDialog(
             title="Delete Slot",
             message="Delete this palette slot and all its frame assignments?",
@@ -244,6 +421,8 @@ class AniColorPanel(QtWidgets.QDialog):
             defaultButton="Cancel", cancelButton="Cancel")
         if result == "Delete":
             ac_palette.delete_palette_slot(palette_id)
+            if self._selected_palette_id == palette_id:
+                self._selected_palette_id = None
             self._refresh_palette_tab()
             self._refresh_frames_tab()
             ac_overlay.refresh_overlay()
@@ -527,6 +706,12 @@ class AniColorPanel(QtWidgets.QDialog):
         """Cleanup overlay and HUD when panel closes."""
         ac_hud.disable_hud()
         ac_overlay.destroy_overlay()
+        if self._script_job:
+            try:
+                cmds.scriptJob(kill=self._script_job, force=True)
+            except Exception:
+                pass
+            self._script_job = None
         super(AniColorPanel, self).closeEvent(event)
 
 

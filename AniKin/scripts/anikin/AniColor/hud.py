@@ -85,7 +85,6 @@ def enable_hud():
             labelFontSize="small",
             command=_hud_command,
             event="timeChanged",
-            conditionFalse="playingBack",
         )
 
         # scriptJob for additional refresh
