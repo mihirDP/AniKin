@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "palettes": [
+        {"id": "p01", "name": "Spine / Torso",        "color": [0.9, 0.3, 0.3],    "visible": true, "marker_curve": "anikin_cm_p01"},
+        {"id": "p02", "name": "Head / Neck",           "color": [0.2, 0.5, 1.0],    "visible": true, "marker_curve": "anikin_cm_p02"},
+        {"id": "p03", "name": "Left Arm",              "color": [0.27, 0.73, 0.27], "visible": true, "marker_curve": "anikin_cm_p03"},
+        {"id": "p04", "name": "Right Arm",             "color": [0.0, 0.8, 0.67],   "visible": true, "marker_curve": "anikin_cm_p04"},
+        {"id": "p05", "name": "Left Leg",              "color": [1.0, 0.85, 0.0],   "visible": true, "marker_curve": "anikin_cm_p05"},
+        {"id": "p06", "name": "Right Leg",             "color": [1.0, 0.6, 0.0],    "visible": true, "marker_curve": "anikin_cm_p06"},
+        {"id": "p07", "name": "Facial",                "color": [0.93, 0.41, 0.61], "visible": true, "marker_curve": "anikin_cm_p07"},
+        {"id": "p08", "name": "Props / Environment",   "color": [0.85, 0.85, 0.85], "visible": true, "marker_curve": "anikin_cm_p08"}
+    ],
+    "frames": {},
+    "ranges": {}
+}

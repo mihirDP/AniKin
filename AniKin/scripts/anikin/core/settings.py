@@ -26,6 +26,7 @@ DEFAULT_SECTIONS = [
     "Bookmarks",
     "Diagnostics",
     "Pipeline",
+    "Color",
     "Setup"
 ]
 

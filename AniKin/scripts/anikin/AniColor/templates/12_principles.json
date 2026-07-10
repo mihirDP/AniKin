@@ -1,0 +1,13 @@
+{
+    "version": 1,
+    "palettes": [
+        {"id": "p01", "name": "Gold Pose / Extreme",     "color": [1.0, 0.72, 0.0],   "visible": true, "marker_curve": "anikin_cm_p01"},
+        {"id": "p02", "name": "Breakdown",                "color": [0.0, 0.67, 1.0],   "visible": true, "marker_curve": "anikin_cm_p02"},
+        {"id": "p03", "name": "In-Between",               "color": [0.67, 0.33, 1.0],  "visible": true, "marker_curve": "anikin_cm_p03"},
+        {"id": "p04", "name": "Contact Frame",            "color": [0.27, 0.73, 0.27], "visible": true, "marker_curve": "anikin_cm_p04"},
+        {"id": "p05", "name": "Overshoot / Anticipation", "color": [1.0, 0.27, 0.27],  "visible": true, "marker_curve": "anikin_cm_p05"},
+        {"id": "p06", "name": "Settle / Ease Out",        "color": [0.0, 0.8, 0.67],   "visible": true, "marker_curve": "anikin_cm_p06"}
+    ],
+    "frames": {},
+    "ranges": {}
+}

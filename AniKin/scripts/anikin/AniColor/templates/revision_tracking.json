@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "palettes": [
+        {"id": "p01", "name": "Approved",              "color": [0.85, 0.85, 0.85], "visible": true, "marker_curve": "anikin_cm_p01"},
+        {"id": "p02", "name": "Needs Revision",        "color": [1.0, 0.85, 0.0],   "visible": true, "marker_curve": "anikin_cm_p02"},
+        {"id": "p03", "name": "Major Fix",             "color": [1.0, 0.27, 0.27],  "visible": true, "marker_curve": "anikin_cm_p03"},
+        {"id": "p04", "name": "Fixed — Pending Review", "color": [0.27, 0.73, 0.27], "visible": true, "marker_curve": "anikin_cm_p04"},
+        {"id": "p05", "name": "Director Note",         "color": [0.2, 0.5, 1.0],    "visible": true, "marker_curve": "anikin_cm_p05"}
+    ],
+    "frames": {},
+    "ranges": {}
+}

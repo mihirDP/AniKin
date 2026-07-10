@@ -58,6 +58,7 @@ from anikin.ui import wave_panel
 from anikin.ui import noise_panel
 from anikin.ui import settings_panel
 from anikin.ui import hotkey_panel
+from anikin.ui import anicolor_panel
 from anikin.core import settings
 
 
@@ -164,6 +165,8 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
                 self._add_diagnostics_section()
             elif sec == "Pipeline":
                 self._add_pipeline_section()
+            elif sec == "Color":
+                self._add_color_section()
             elif sec == "Setup":
                 self._add_setup_section()
 
@@ -445,6 +448,13 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.toolbar_layout.addWidget(ToolButton(
             "camera", "AniSnap: Visual Pose Library",
             callback=snap_panel.show_panel,
+            accent=True
+        ))
+
+    def _add_color_section(self):
+        self.toolbar_layout.addWidget(ToolButton(
+            "palette", "AniColor: Keyframe Coloring & Labeling",
+            callback=anicolor_panel.show_panel,
             accent=True
         ))
 
