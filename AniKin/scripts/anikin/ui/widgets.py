@@ -329,6 +329,8 @@ class TweenSlider(QtWidgets.QSlider):
     design from the updated specs.
     """
     value_changed = QtCore.Signal(float)
+    drag_started = QtCore.Signal()
+    drag_ended = QtCore.Signal()
 
     def __init__(self, label="TW", tooltip=""):
         super(TweenSlider, self).__init__(QtCore.Qt.Horizontal)
@@ -343,6 +345,7 @@ class TweenSlider(QtWidgets.QSlider):
         self.theme_def = _SLIDER_THEMES.get(label, _SLIDER_THEMES["TW"])
         
         self.valueChanged.connect(self._on_slider_changed)
+        self.sliderPressed.connect(self.drag_started)
         self.sliderReleased.connect(self._on_slider_released)
 
     def _on_slider_changed(self, raw_value):
@@ -350,6 +353,7 @@ class TweenSlider(QtWidgets.QSlider):
         self.value_changed.emit(bias)
 
     def _on_slider_released(self):
+        self.drag_ended.emit()
         # Snap back to center
         self.setValue(100)
 

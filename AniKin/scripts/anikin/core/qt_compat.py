@@ -18,6 +18,10 @@ except ImportError:
 
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 
+try:
+    MIDDLE_BUTTON = QtCore.Qt.MouseButton.MiddleButton  # PySide6
+except AttributeError:
+    MIDDLE_BUTTON = QtCore.Qt.MiddleButton              # PySide2
 
 def get_maya_main_window():
     """Return the Maya main window as a QWidget so we can parent dialogs to it."""

@@ -19,6 +19,21 @@ from anikin.core.selection import get_selected_or_warn
 from anikin.core.log import log_debug
 
 
+_IS_TWEENING = False
+
+def begin_tween():
+    global _IS_TWEENING
+    if not _IS_TWEENING:
+        cmds.undoInfo(openChunk=True, chunkName="AniKin_Tween")
+        _IS_TWEENING = True
+
+def end_tween():
+    global _IS_TWEENING
+    if _IS_TWEENING:
+        cmds.undoInfo(closeChunk=True)
+        _IS_TWEENING = False
+
+
 def _get_animated_channels(node):
     """Return a list of (node.attr) strings that have animation curves."""
     connections = cmds.listConnections(node, type="animCurve", plugs=False,
@@ -48,18 +63,8 @@ def _get_prev_next_keys(attr, current_time):
     if prev == nxt:
         return None, None
 
-    # If we're sitting on a key, prev == current_time, so look further back
-    if prev == current_time:
-        prev = cmds.findKeyframe(attr, time=(current_time, current_time),
-                                 which="previous")
-        if prev == current_time:
-            return None, None
-
     if nxt == current_time:
-        nxt = cmds.findKeyframe(attr, time=(current_time, current_time),
-                                which="next")
-        if nxt == current_time:
-            return None, None
+        return None, None
 
     return prev, nxt
 
@@ -100,7 +105,11 @@ def apply_tween(bias=0.5, easing="linear"):
 
     current_time = cmds.currentTime(query=True)
 
-    with UndoChunk("AniKin: Tween ({:.0%})".format(bias)):
+    single_shot = not _IS_TWEENING
+    if single_shot:
+        cmds.undoInfo(openChunk=True, chunkName="AniKin: Tween ({:.0%})".format(bias))
+
+    try:
         for node in sel:
             channels = _get_animated_channels(node)
             for attr in channels:
@@ -130,6 +139,9 @@ def apply_tween(bias=0.5, easing="linear"):
                 attr_name = ".".join(parts[1:])
                 cmds.setKeyframe(node_name, attribute=attr_name,
                                  time=current_time, value=tweened)
+    finally:
+        if single_shot:
+            cmds.undoInfo(closeChunk=True)
 
 
 def smart_key(mode="all"):

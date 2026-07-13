@@ -36,8 +36,12 @@ from anikin import AniBake
 from anikin import AniNudge
 from anikin import AniChannels
 from anikin import AniSmooth
-from anikin import AniMotion
+from anikin import AniTrail
 from anikin import AniGhost
+from anikin import AniMirror
+from anikin import AniMatch
+from anikin import AniRetime
+from anikin import AniBlast
 from anikin import AniMirror
 from anikin import AniKeyNav
 from anikin import AniCamLock
@@ -53,7 +57,7 @@ from anikin import AniExport
 from anikin.ui import selection_sets_panel
 from anikin.ui import bookmarks_panel
 from anikin.ui import check_panel
-from anikin.ui import snap_panel
+from anikin.AniPosePro.ui import panel as anipose_panel
 from anikin.ui import wave_panel
 from anikin.ui import noise_panel
 from anikin.ui import settings_panel
@@ -237,8 +241,8 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             callback=AniMirror.paste_pose
         ))
         self.toolbar_layout.addWidget(ToolButton(
-            "camera", "AniSnap — save and recall pose snapshots",
-            callback=snap_panel.show_panel,
+            "camera", "AniPose Pro — advanced pose library and history",
+            callback=anipose_panel.show_panel,
             accent=True
         ))
 
@@ -246,10 +250,14 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         """Group 3 — Tween / Ease Sliders."""
         self.tween_slider = TweenSlider(label="TW", tooltip="Tween Slider (Linear Interpolation)")
         self.tween_slider.value_changed.connect(lambda b: self._on_tween(b, "linear"))
+        self.tween_slider.drag_started.connect(AniTween.begin_tween)
+        self.tween_slider.drag_ended.connect(AniTween.end_tween)
         self.toolbar_layout.addWidget(self.tween_slider)
 
         self.ease_slider = TweenSlider(label="EA", tooltip="Ease Slider (Ease-In / Ease-Out Interpolation)")
         self.ease_slider.value_changed.connect(lambda b: self._on_tween(b, "ease_in_out"))
+        self.ease_slider.drag_started.connect(AniTween.begin_tween)
+        self.ease_slider.drag_ended.connect(AniTween.end_tween)
         self.toolbar_layout.addWidget(self.ease_slider)
 
         smart_key_btn = ToolButton(
@@ -366,15 +374,38 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(duplicate_btn)
 
-        # Smart Bake
-        self.toolbar_layout.addWidget(ToolButton(
-            "bake_to_locator", "Smart Bake: Bake world-space motion → locator",
+        # Smart Bake (v2 with Temp Space and Pivot Mode)
+        bake_btn = ToolButton(
+            "bake_to_locator", "Smart Bake: World-Space & Temp Space\n(Right-click for options)",
             callback=AniBake.bake_to_locator
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "bake_from_locator", "Smart Bake: Paste locator motion → object",
-            callback=AniBake.bake_from_locator
-        ))
+        )
+        bake_btn.set_context_menu([
+            ("Smart Bake: Object → Locator", AniBake.bake_to_locator),
+            ("Smart Bake: Locator → Object", AniBake.bake_from_locator),
+            (None, None),
+            ("Temp Space Unlock (Protect World-Space)", AniBake.temp_space_unlock),
+            ("Temp Space Relock (Bake back to Local)", AniBake.temp_space_relock),
+            ("Cancel Temp Space", AniBake.temp_space_cancel),
+            (None, None),
+            ("Start Dynamic Micro-Pivot Mode", AniBake.pivot_mode_start),
+            ("Commit Dynamic Micro-Pivot", AniBake.pivot_mode_commit),
+            ("Cancel Micro-Pivot", AniBake.pivot_mode_cancel)
+        ])
+        self.toolbar_layout.addWidget(bake_btn)
+        
+        # IK/FK Match
+        match_btn = ToolButton(
+            "transition", "AniMatch: IK/FK Snap & Match\n(Right-click for options)",
+            callback=lambda: self._on_animatch("ik_to_fk")
+        )
+        match_btn.set_context_menu([
+            ("Snap IK to FK (Auto-detect)", lambda: self._on_animatch("ik_to_fk")),
+            ("Snap FK to IK (Auto-detect)", lambda: self._on_animatch("fk_to_ik")),
+            (None, None),
+            ("Bake-Match Range: IK to FK", lambda: self._on_animatch("ik_to_fk", bake_range=True)),
+            ("Bake-Match Range: FK to IK", lambda: self._on_animatch("fk_to_ik", bake_range=True))
+        ])
+        self.toolbar_layout.addWidget(match_btn)
 
         # AniWave
         wave_btn = ToolButton(
@@ -454,15 +485,31 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(cleanup_btn)
 
-        # Motion Trail
+        # AniRetime
+        retime_btn = ToolButton(
+            "stopwatch", "AniRetime: Snap to Integers & Scale Keys\n(Right-click for options)",
+            callback=lambda: AniRetime.snap_to_integers(mode="selection")
+        )
+        retime_btn.set_context_menu([
+            ("Snap Selection to Whole Frames", lambda: AniRetime.snap_to_integers(mode="selection")),
+            ("Snap All Scene Curves to Whole Frames", lambda: AniRetime.snap_to_integers(mode="all")),
+            (None, None),
+            ("Retime: x0.5 (Double Speed)", lambda: AniRetime.retime_range(0.5, pivot_mode="start")),
+            ("Retime: x2.0 (Half Speed)", lambda: AniRetime.retime_range(2.0, pivot_mode="start")),
+        ])
+        self.toolbar_layout.addWidget(retime_btn)
+
+        # AniTrail (Editable Motion Trails)
         trail_btn = ToolButton(
-            "trail", "Toggle Motion Trail\n(Right-click for options)",
-            callback=AniMotion.toggle_motion_trail
+            "trail", "AniTrail: Editable Motion Trails\n(Right-click for options)",
+            callback=lambda: AniTrail.toggle_trail()
         )
         trail_btn.set_context_menu([
-            ("Clear All Motion Trails", AniMotion.clear_all),
+            ("Clear All Trails (Scene Purge)", AniTrail.clear_all),
             (None, None),
-            ("Configure Motion Trail...", lambda: settings_panel.show_panel(active_tab=1, on_apply_callback=self.rebuild_toolbar))
+            ("Trail Mode: Past Only", lambda: AniTrail.set_trail_mode("past")),
+            ("Trail Mode: Future Only", lambda: AniTrail.set_trail_mode("future")),
+            ("Trail Mode: Both", lambda: AniTrail.set_trail_mode("both")),
         ])
         self.toolbar_layout.addWidget(trail_btn)
 
@@ -488,6 +535,13 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             ("Ground to Last Selected (Keep Offsets)", lambda: AniGround.ground_objects(mode="keep_offset"))
         ])
         self.toolbar_layout.addWidget(ground_btn)
+        
+        # Playblast
+        self.toolbar_layout.addWidget(ToolButton(
+            "desktop", "AniBlast: Advanced HUD Playblaster (H.264 MP4)",
+            callback=lambda: AniBlast.blast(show_hud=True, encode_mp4=True),
+            accent=True
+        ))
 
     def _add_setup_section(self):
         """Group 9 — Settings / Help."""
@@ -640,6 +694,61 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         if path:
             from anikin import AniExport
             AniExport.export_fbx(path)
+
+    # ── AniMatch Wrapper ─────────────────────────────────────────
+    def _on_animatch(self, direction="ik_to_fk", bake_range=False):
+        """Wrapper for AniMatch auto-detection and execution."""
+        from anikin import AniMatch
+        limbs = AniMatch.auto_detect_limbs()
+        if not limbs:
+            cmds.warning("AniMatch: Could not auto-detect IK/FK limbs based on naming conventions.")
+            return
+            
+        # Get selected control to determine which limb to match
+        sel = cmds.ls(selection=True, long=True) or []
+        if not sel:
+            cmds.warning("AniMatch: Select an IK or FK control to snap.")
+            return
+            
+        target_limb = None
+        target_ctrl = sel[0]
+        
+        for limb in limbs:
+            if target_ctrl in [limb["ik_ctrl"]] + limb["fk_ctrls"]:
+                target_limb = limb
+                break
+                
+        if not target_limb:
+            # If not directly selected, just try the first detected limb (fallback)
+            target_limb = limbs[0]
+            
+        # For auto-detect to work without full config, we need joints
+        # Usually FK controls drive joints directly, so we'll try to find them
+        if not target_limb.get("joints"):
+            joints = []
+            for fk in target_limb["fk_ctrls"]:
+                # Try finding driven joints
+                conns = cmds.listConnections(fk, type="joint") or []
+                if conns:
+                    joints.append(conns[0])
+                else:
+                    # Fallback: assume the FK control IS the joint or has same transform
+                    joints.append(fk)
+            target_limb["joints"] = joints
+            
+        if bake_range:
+            AniMatch.match_range(target_limb, direction=direction)
+        else:
+            if direction == "ik_to_fk":
+                success = AniMatch.match_ik_to_fk(target_limb)
+            else:
+                success = AniMatch.match_fk_to_ik(target_limb)
+                
+            if success:
+                cmds.inViewMessage(
+                    amg="<hl>AniMatch</hl>: Snapped {} ({})".format(target_limb["name"], direction.replace("_", " ")),
+                    pos="topCenter", fade=True, fadeStayTime=1500
+                )
 
 
 # ──────────────────────────────────────────────────────────────────────────────────
