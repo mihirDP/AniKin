@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="FlatCurve" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #f97316;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <line class="cls-1" x1="1.21" y1="15.76" x2="29.91" y2="15.76"/>
+</svg>

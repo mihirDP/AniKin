@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="LockChannels" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #f97316;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <line class="cls-1" x1="16.99" y1="8.61" x2="29.26" y2="8.61"/>
+  <line class="cls-1" x1="19.15" y1="14.92" x2="29.26" y2="14.92"/>
+  <line class="cls-1" x1="19.15" y1="21.24" x2="29.26" y2="21.24"/>
+  <g>
+    <path class="cls-1" d="M13.2,23.24H4.45c-1.5,0-2.71-1.21-2.71-2.71v-5.79c0-1.5,1.21-2.71,2.71-2.71h8.74c1.5,0,2.71,1.21,2.71,2.71v5.79c0,1.5-1.21,2.71-2.71,2.71Z"/>
+    <path class="cls-1" d="M12.89,11.12v-2.44c0-1.14-.9-2.07-2.01-2.07h-4.72c-1.11,0-2.01.93-2.01,2.07v3.16"/>
+  </g>
+</svg>

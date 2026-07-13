@@ -6,7 +6,29 @@ Small, focused widget classes used across the toolbar and panels.
 """
 
 import os
+import re
 from anikin.core.qt_compat import QtWidgets, QtCore, QtGui
+from anikin.ui.theme import get_theme_colors
+
+def _load_colored_svg(icon_path, target_color):
+    """Loads an SVG file, string-replaces its colors, and returns a QIcon."""
+    if not os.path.exists(icon_path):
+        return QtGui.QIcon()
+        
+    with open(icon_path, "r", encoding="utf-8") as f:
+        svg_data = f.read()
+        
+    # Replace any stroke or fill color with the target color
+    svg_data = re.sub(r'stroke\s*=\s*["\'](currentColor|#[0-9a-fA-F]{3,6}|white|black)["\']', f'stroke="{target_color}"', svg_data, flags=re.IGNORECASE)
+    svg_data = re.sub(r'fill\s*=\s*["\'](currentColor|#[0-9a-fA-F]{3,6}|white|black)["\']', f'fill="{target_color}"', svg_data, flags=re.IGNORECASE)
+    svg_data = re.sub(r'stroke\s*:\s*(currentColor|#[0-9a-fA-F]{3,6}|white|black)\s*;?', f'stroke: {target_color};', svg_data, flags=re.IGNORECASE)
+    svg_data = re.sub(r'fill\s*:\s*(currentColor|#[0-9a-fA-F]{3,6}|white|black)\s*;?', f'fill: {target_color};', svg_data, flags=re.IGNORECASE)
+
+    svg_bytes = QtCore.QByteArray(svg_data.encode('utf-8'))
+    pixmap = QtGui.QPixmap()
+    pixmap.loadFromData(svg_bytes, "SVG")
+    
+    return QtGui.QIcon(pixmap)
 
 
 # ─────────────────────────────────────────────────────────
@@ -112,8 +134,13 @@ class SectionSeparator(QtWidgets.QFrame):
     def __init__(self, parent=None):
         super(SectionSeparator, self).__init__(parent)
         self.setFrameShape(QtWidgets.QFrame.VLine)
-        self.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.setFixedWidth(2)
+        self.setFrameShadow(QtWidgets.QFrame.Plain)
+        self.setFixedWidth(1)
+        self.setFixedHeight(28)
+        
+        from anikin.ui.theme import get_theme_colors
+        colors = get_theme_colors()
+        self.setStyleSheet("background-color: {}; border: none;".format(colors["separator"]))
 
 
 # ─────────────────────────────────────────────────────────
@@ -139,7 +166,7 @@ class ToolButton(QtWidgets.QPushButton):
     _ICONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 
     def __init__(self, label, tooltip="", callback=None, accent=False,
-                 parent=None):
+                 danger=False, size=36, parent=None):
         super(ToolButton, self).__init__(parent)
 
         if tooltip:
@@ -148,24 +175,40 @@ class ToolButton(QtWidgets.QPushButton):
             self.clicked.connect(callback)
         if accent:
             self.setProperty("accent", True)
+        if danger:
+            self.setProperty("danger", True)
+
+        self._btn_size = size
+        self.setMinimumSize(size, size)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+
+        colors = get_theme_colors()
+        if danger:
+            icon_color = colors["danger"]
+        elif accent:
+            icon_color = colors["accent"]
+        else:
+            icon_color = colors["text"]
 
         # Try to load icon by label name directly
         icon_found = False
-        for ext in (".svg", ".png"):
-            icon_path = os.path.join(self._ICONS_DIR, label + ext)
-            if os.path.exists(icon_path):
-                self.setIcon(QtGui.QIcon(icon_path))
-                icon_found = True
-                break
-
-        if icon_found:
-            self.setIconSize(QtCore.QSize(26, 26))
-            self.setText("")  # Hide text — icon only
-            self.setFixedSize(36, 36)
+        icon_path = os.path.join(self._ICONS_DIR, label + ".svg")
+        if os.path.exists(icon_path):
+            self.setIcon(_load_colored_svg(icon_path, icon_color))
+            icon_found = True
         else:
-            # Fallback: display the label text
+            # Fallback to PNG without recoloring
+            png_path = os.path.join(self._ICONS_DIR, label + ".png")
+            if os.path.exists(png_path):
+                self.setIcon(QtGui.QIcon(png_path))
+                icon_found = True
+
+        icon_render_size = max(size - 12, 16)
+        if icon_found:
+            self.setIconSize(QtCore.QSize(icon_render_size, icon_render_size))
+            self.setText("")
+        else:
             self.setText(label)
-            self.setMinimumWidth(34)
 
         # Context menu support
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -199,70 +242,51 @@ class ToolButton(QtWidgets.QPushButton):
 class ToggleToolButton(ToolButton):
     """
     A ToolButton with two visual states (A / B).
-
-    On each click the icon, tooltip, and optional accent border swap,
-    giving the user immediate feedback on the current state.
-
-    Args:
-        icon_a / icon_b: SVG filename stems for the two states.
-        tooltip_a / tooltip_b: Tooltips for each state.
-        callback: Called on every click with the *new* ``toggled`` bool
-                  (True = state B, False = state A).
-        start_toggled: If True, start in state B.
-        accent_a / accent_b: Whether each state uses accent styling.
     """
 
     _ICONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 
-    def __init__(self, icon_a, icon_b, tooltip_a="", tooltip_b="",
-                 callback=None, start_toggled=False,
-                 accent_a=False, accent_b=False, parent=None):
-        # Initialise base class with state-A icon (no callback yet)
-        super(ToggleToolButton, self).__init__(
-            icon_a, tooltip=tooltip_a, callback=None,
-            accent=accent_a, parent=parent
-        )
+    def __init__(self, icon_a, icon_b, tooltip_a, tooltip_b, callback,
+                 accent_a=False, accent_b=False, size=36, parent=None):
+        super(ToggleToolButton, self).__init__(icon_a, tooltip_a, None, accent_a, size=size, parent=parent)
+        self.setCheckable(True)
+        self.setChecked(False)
+        self._toggled = False
 
-        self._icon_a_path = self._find_icon(icon_a)
-        self._icon_b_path = self._find_icon(icon_b)
+        self._icon_a_name = icon_a
+        self._icon_b_name = icon_b
         self._tooltip_a = tooltip_a
         self._tooltip_b = tooltip_b
+        self._user_callback = callback
         self._accent_a = accent_a
         self._accent_b = accent_b
-        self._toggled = False
-        self._user_callback = callback
-
-        # Connect our own handler
         self.clicked.connect(self._on_clicked)
-
-        if start_toggled:
-            self._toggled = True
-            self._apply_state()
-
-    # ── helpers ────────────────────────────────────────────
-    def _find_icon(self, label):
-        for ext in (".svg", ".png"):
-            path = os.path.join(self._ICONS_DIR, label + ext)
-            if os.path.exists(path):
-                return path
-        return None
+        # Force style refresh
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
 
     def _apply_state(self):
-        """Apply the current state's icon, tooltip, and accent."""
+        colors = get_theme_colors()
         if self._toggled:
-            icon_path = self._icon_b_path
-            tip = self._tooltip_b
-            accent = self._accent_b
+            self.setToolTip(self._tooltip_b)
+            self.setProperty("accent", self._accent_b)
+            icon_color = colors["accent"] if self._accent_b else colors["text"]
+            icon_path = os.path.join(self._ICONS_DIR, self._icon_b_name + ".svg")
         else:
-            icon_path = self._icon_a_path
-            tip = self._tooltip_a
-            accent = self._accent_a
+            self.setToolTip(self._tooltip_a)
+            self.setProperty("accent", self._accent_a)
+            icon_color = colors["accent"] if self._accent_a else colors["text"]
+            icon_path = os.path.join(self._ICONS_DIR, self._icon_a_name + ".svg")
+            
+        if os.path.exists(icon_path):
+            self.setIcon(_load_colored_svg(icon_path, icon_color))
+        else:
+            # PNG fallback (no color replace)
+            png_path = icon_path.replace(".svg", ".png")
+            if os.path.exists(png_path):
+                self.setIcon(QtGui.QIcon(png_path))
 
-        if icon_path:
-            self.setIcon(QtGui.QIcon(icon_path))
-        self.setToolTip(tip)
-        self.setProperty("accent", accent)
-        # Force style refresh
         self.style().unpolish(self)
         self.style().polish(self)
         self.update()
@@ -290,139 +314,94 @@ class ToggleToolButton(ToolButton):
 # Per-slider accent colours (separate from global ACCENT so they can't be confused)
 _SLIDER_THEMES = {
     "TW": {
-        "badge_bg":    "#c25900",   # Warm amber-orange
-        "badge_fg":    "#fff3e0",
-        "groove":      "#1e1e1e",
-        "fill":        "#f97316",   # Orange fill
-        "handle":      "#fb923c",
-        "handle_bdr":  "#c2410c",
         "label":       "TW",
+        "fill":        "#d4860a",  # Defaults, overridden by current theme
     },
     "EA": {
-        "badge_bg":    "#5b21b6",   # Deep violet
-        "badge_fg":    "#ede9fe",
-        "groove":      "#1e1e1e",
-        "fill":        "#7c3aed",   # Purple fill
-        "handle":      "#a78bfa",
-        "handle_bdr":  "#4c1d95",
         "label":       "EA",
+        "fill":        "#8855cc",
     },
 }
 
-
-class TweenSlider(QtWidgets.QWidget):
+class TweenSlider(QtWidgets.QSlider):
     """
-    A compact, color-coded slider widget for the Tween and Ease tools.
-
-    Emits value_changed(float) with the bias in the range -0.5..1.5.
-    Each slider type (TW / EA) has its own color scheme so they are
-    immediately visually distinct inside the toolbar.
+    A custom-painted slider for tweening that matches the 'pill on a dotted track'
+    design from the updated specs.
     """
-
     value_changed = QtCore.Signal(float)
 
-    def __init__(self, parent=None, label="TW", tooltip="Tween Slider",
-                 default_val=100):
-        super(TweenSlider, self).__init__(parent)
-
-        self.default_val = default_val
-        theme = _SLIDER_THEMES.get(label, _SLIDER_THEMES["TW"])
-
-        # ── outer container ──────────────────────────────────
-        root = QtWidgets.QVBoxLayout(self)
-        root.setContentsMargins(2, 1, 2, 1)
-        root.setSpacing(1)
-
-        # ── top row: badge + value label ─────────────────────
-        top_row = QtWidgets.QHBoxLayout()
-        top_row.setContentsMargins(0, 0, 0, 0)
-        top_row.setSpacing(3)
-
-        self.badge = QtWidgets.QLabel(theme["label"])
-        self.badge.setAlignment(QtCore.Qt.AlignCenter)
-        self.badge.setFixedSize(24, 14)
-        self.badge.setStyleSheet(
-            "background-color: {bg}; color: {fg}; border-radius: 3px;"
-            "font-weight: bold; font-size: 8px; letter-spacing: 0.5px;".format(
-                bg=theme["badge_bg"], fg=theme["badge_fg"]
-            )
-        )
-        top_row.addWidget(self.badge)
-
-        top_row.addStretch()
-
-        self.value_label = QtWidgets.QLabel("0%")
-        self.value_label.setFixedWidth(30)
-        self.value_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.value_label.setStyleSheet(
-            "color: {fg}; font-size: 8px; font-weight: bold;".format(fg=theme["badge_fg"])
-        )
-        top_row.addWidget(self.value_label)
-
-        root.addLayout(top_row)
-
-        # ── slider ───────────────────────────────────────────
-        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self.slider.setRange(0, 200)
-        self.slider.setValue(self.default_val)
-        self.slider.setFixedWidth(110)
-        self.slider.setFixedHeight(14)
-        self.slider.setToolTip(tooltip)
-
-        # Per-slider inline stylesheet so both can coexist on the same widget
-        self.slider.setStyleSheet("""
-            QSlider::groove:horizontal {{
-                height: 5px;
-                background: {groove};
-                border-radius: 2px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {fill};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {handle};
-                border: 1px solid {handle_bdr};
-                width: 12px;
-                height: 12px;
-                margin: -4px 0;
-                border-radius: 6px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: {fill};
-            }}
-        """.format(
-            groove=theme["groove"],
-            fill=theme["fill"],
-            handle=theme["handle"],
-            handle_bdr=theme["handle_bdr"],
-        ))
-
-        root.addWidget(self.slider)
-
-        # Connect signals
-        self.slider.valueChanged.connect(self._on_slider_changed)
-        self.slider.sliderReleased.connect(self._on_slider_released)
-
-        # Fixed overall size so it occupies a predictable amount of toolbar space
-        self.setFixedWidth(114)
-        self.setFixedHeight(36)
-
-    # ── value helpers ────────────────────────────────────────
+    def __init__(self, label="TW", tooltip=""):
+        super(TweenSlider, self).__init__(QtCore.Qt.Horizontal)
+        self.setRange(0, 200)
+        self.setValue(100)
+        self.setFixedWidth(130)
+        self.setFixedHeight(24)
+        if tooltip:
+            self.setToolTip(tooltip)
+            
+        self._label = label
+        self.theme_def = _SLIDER_THEMES.get(label, _SLIDER_THEMES["TW"])
+        
+        self.valueChanged.connect(self._on_slider_changed)
+        self.sliderReleased.connect(self._on_slider_released)
 
     def _on_slider_changed(self, raw_value):
-        """Map slider int (0-200) to bias float (-0.5..1.5)."""
-        bias = (raw_value - 100) / 100.0   # 0→-1, 100→0, 200→+1
-        percent = int(bias * 100)
-        sign = "+" if percent > 0 else ""
-        self.value_label.setText("{}{}%".format(sign, percent))
+        bias = (raw_value - 100) / 100.0
         self.value_changed.emit(bias)
 
     def _on_slider_released(self):
-        """Snap slider back to centre on mouse-up."""
-        self.slider.setValue(100)
-        self.value_label.setText("0%")
+        # Snap back to center
+        self.setValue(100)
 
-    def get_bias(self):
-        """Return the current bias value (float -1..+1)."""
-        return (self.slider.value() - 100) / 100.0
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        
+        colors = get_theme_colors()
+        
+        # Use theme accent if it's TW, otherwise keep EA purple
+        slider_color = colors["accent"] if self._label == "TW" else self.theme_def["fill"]
+        
+        rect = self.rect()
+        
+        # 1. Draw the track (dark, slightly rounded)
+        groove_rect = QtCore.QRect(rect.left(), rect.center().y() - 3, rect.width(), 6)
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(QtGui.QColor(colors["bg_elevated"]))
+        painter.drawRoundedRect(groove_rect, 3, 3)
+        
+        # 2. Draw the ticks (tiny squares of accent color)
+        painter.setBrush(QtGui.QColor(slider_color))
+        ticks = 8
+        spacing = rect.width() / float(ticks)
+        for i in range(ticks + 1):
+            x = rect.left() + (i * spacing)
+            if i == 0: x += 3
+            elif i == ticks: x -= 5
+            else: x -= 1
+            painter.drawRect(QtCore.QRect(int(x), rect.center().y() - 1, 2, 2))
+            
+        # 3. Draw the Handle (a Pill with text inside)
+        val_range = self.maximum() - self.minimum()
+        val_percent = (self.value() - self.minimum()) / float(val_range) if val_range > 0 else 0
+        
+        handle_w = 26
+        handle_h = 18
+        handle_x = int(rect.left() + val_percent * (rect.width() - handle_w))
+        handle_y = rect.center().y() - (handle_h // 2)
+        
+        draw_rect = QtCore.QRect(handle_x, handle_y, handle_w, handle_h)
+        
+        # Inner background of the handle
+        painter.setBrush(QtGui.QColor(colors["bg_surface"]))
+        # Border of the handle
+        painter.setPen(QtGui.QPen(QtGui.QColor(colors["border_light"]), 1))
+        painter.drawRoundedRect(draw_rect, 4, 4)
+        
+        # Text inside handle
+        painter.setPen(QtGui.QColor(slider_color))
+        font = painter.font()
+        font.setPointSize(9)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(draw_rect, QtCore.Qt.AlignCenter, self._label)

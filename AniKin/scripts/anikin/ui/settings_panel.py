@@ -120,6 +120,26 @@ class SettingsPanel(QtWidgets.QDialog):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
 
+        # Theme Selection
+        theme_layout = QtWidgets.QHBoxLayout()
+        theme_lbl = QtWidgets.QLabel("<b>UI Theme:</b>")
+        theme_lbl.setFixedWidth(100)
+        theme_layout.addWidget(theme_lbl)
+        
+        self.theme_combo = QtWidgets.QComboBox()
+        self.theme_combo.addItems(["Amber", "MayaBlue", "Crimson", "Emerald", "Amethyst", "Custom"])
+        theme_layout.addWidget(self.theme_combo)
+        
+        self.custom_theme_btn = QtWidgets.QPushButton("Edit Accent Color...")
+        self.custom_theme_btn.clicked.connect(self._edit_custom_theme)
+        self.custom_theme_btn.setVisible(False)
+        theme_layout.addWidget(self.custom_theme_btn)
+        
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        
+        theme_layout.addStretch()
+        layout.addLayout(theme_layout)
+        
         # Debug Mode
         self.debug_chk = QtWidgets.QCheckBox("Enable Debug Mode (Log output to AniKin.log)")
         self.debug_chk.setToolTip("Saves verbose execution logs to system temp directory.")
@@ -196,7 +216,7 @@ class SettingsPanel(QtWidgets.QDialog):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("<b>AniKin Toolkit v0.3</b>")
+        title = QtWidgets.QLabel("<b>AniKin Toolkit v0.5</b>")
         title.setStyleSheet("font-size: 14px;")
         layout.addWidget(title)
         
@@ -264,6 +284,16 @@ class SettingsPanel(QtWidgets.QDialog):
             item.setCheckState(check_state)
             self.sections_list.addItem(item)
 
+        # Theme
+        theme = cfg.get("theme", "Amber")
+        index = self.theme_combo.findText(theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
+            
+        from anikin.ui.theme import get_theme_colors
+        self.custom_theme_data = cfg.get("custom_theme", get_theme_colors("Amber").copy())
+        self._on_theme_changed(theme)
+            
         # 2. General Preferences
         self.debug_chk.setChecked(cfg.get("debug_mode", False))
         
@@ -297,6 +327,8 @@ class SettingsPanel(QtWidgets.QDialog):
 
         # 3. Save settings
         cfg = {
+            "theme": self.theme_combo.currentText(),
+            "custom_theme": getattr(self, "custom_theme_data", {}),
             "section_order": order,
             "visible_sections": visible,
             "pose_library_roots": lib_roots,
@@ -344,6 +376,20 @@ class SettingsPanel(QtWidgets.QDialog):
             amg="<hl>AniKin</hl>: Settings applied successfully",
             pos="topCenter", fade=True, fadeStayTime=1500
         )
+
+    def _on_theme_changed(self, text):
+        self.custom_theme_btn.setVisible(text == "Custom")
+        
+    def _edit_custom_theme(self):
+        from anikin.core.qt_compat import QtGui
+        color = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.custom_theme_data.get("accent", "#d4860a")), self, "Select Accent Color")
+        if color.isValid():
+            self.custom_theme_data["accent"] = color.name()
+            r, g, b, _ = color.getRgb()
+            self.custom_theme_data["accent_muted"] = "rgba({}, {}, {}, 0.15)".format(r, g, b)
+            self.custom_theme_data["accent_hover_bg"] = "rgba({}, {}, {}, 0.25)".format(r, g, b)
+            self.custom_theme_data["accent_pressed_bg"] = "rgba({}, {}, {}, 0.35)".format(r, g, b)
+            cmds.inViewMessage(amg="Custom accent updated. Click Apply to save.", pos="topCenter", fade=True, fadeStayTime=1500)
 
 
 # —— Global instance —————————————————————————————————————

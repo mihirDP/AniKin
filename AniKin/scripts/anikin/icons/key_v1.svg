@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="SetKey" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #f97316;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <polygon class="cls-1" points="18.89 15.06 15.73 23.27 14.66 26.05 13.55 28.95 8.29 15.25 13.62 1.35 14.75 4.25 15.8 7.03 18.89 15.06"/>
+  <g>
+    <line class="cls-1" x1="17.89" y1="6.2" x2="25.85" y2="6.2"/>
+    <line class="cls-1" x1="21.87" y1="2.42" x2="21.87" y2="9.98"/>
+  </g>
+</svg>

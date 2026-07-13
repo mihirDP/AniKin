@@ -13,32 +13,33 @@ import maya.cmds as cmds
 SETTINGS_FILE = os.path.expanduser("~/maya/AniKin_settings.json")
 
 DEFAULT_SECTIONS = [
-    "Transform",
-    "Tangents",
-    "Timing",
+    "Brand",
+    "Selection",
+    "Pose",
     "Tween Slider",
-    "Workflow",
+    "Tangents",
+    "Playback",
     "Channels",
+    "Modules",
     "Curves",
-    "Vis",
-    "Sets",
-    "Poses",
-    "Bookmarks",
-    "Diagnostics",
-    "Pipeline",
-    "Color",
     "Setup"
 ]
 
 
-def load_settings():
-    """Load settings from JSON config file."""
-    default = {
+def default_settings():
+    """Return the default configuration dictionary."""
+    return {
+        "theme": "MayaBlue",
         "section_order": list(DEFAULT_SECTIONS),
         "visible_sections": list(DEFAULT_SECTIONS),
         "pose_library_roots": [os.path.expanduser("~/maya/anikin_poses")],
         "debug_mode": False
     }
+
+
+def load_settings():
+    """Load settings from JSON config file."""
+    default = default_settings()
     
     if not os.path.exists(SETTINGS_FILE):
         return default
@@ -51,6 +52,21 @@ def load_settings():
                 if key not in data:
                     data[key] = val
             
+            # Migrate legacy section names to current names
+            legacy_map = {
+                "Transform": "Pose",
+                "Timing": "Playback",
+                "Workflow": "Modules"
+            }
+            for lst in ("section_order", "visible_sections"):
+                if lst in data:
+                    new_list = []
+                    for sec in data[lst]:
+                        mapped_sec = legacy_map.get(sec, sec)
+                        if mapped_sec not in new_list:
+                            new_list.append(mapped_sec)
+                    data[lst] = new_list
+
             # Dynamically register any new sections added in updates
             for sec in DEFAULT_SECTIONS:
                 if sec not in data["section_order"]:

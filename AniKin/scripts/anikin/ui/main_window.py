@@ -2,7 +2,7 @@
 main_window.py
 AniKin Main Dockable Window.
 
-This is the primary UI â€” a horizontal toolbar that docks to the bottom
+This is the primary UI — a horizontal toolbar that docks to the bottom
 of Maya's viewport (above the timeline), similar in layout to professional
 animator toolbelts.
 
@@ -11,10 +11,10 @@ Architecture notes:
 - Global reference (_INSTANCE) prevents Python GC from destroying the UI
 - Workspace control names are carefully managed to avoid Maya's notorious
   "name is not unique" error
-- All tool callbacks are connected here â€” the window is the "wiring" layer
+- All tool callbacks are connected here — the window is the "wiring" layer
   between UI widgets and tool logic
-- v0.2.0: Icon-only toolbar with color-coded category grouping.
-  Section labels removed per UIUX 2.0 Icon Language Guide.
+- v0.5.0: Redesigned 10-group toolbar layout with new icon pack,
+  amber accent color system, and merged Lock/Unlock toggle.
 """
 
 import maya.cmds as cmds
@@ -62,7 +62,6 @@ from anikin.ui import anicolor_panel
 from anikin.core import settings
 
 
-
 # ──────────────────────────────────────────────────────────────────────────────────
 # Window class
 # ──────────────────────────────────────────────────────────────────────────────────
@@ -82,6 +81,19 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
 
         self._build_ui()
         self.setStyleSheet(STYLESHEET)
+        
+        # Sync Play/Pause toggle with Maya's playback state
+        self._playback_job = cmds.scriptJob(
+            conditionChange=["playingBack", self._sync_playback_state],
+            parent=self.WINDOW_NAME,
+            replacePrevious=True
+        )
+
+    def _sync_playback_state(self):
+        if hasattr(self, '_play_btn') and self._play_btn:
+            is_playing = cmds.play(query=True, state=True)
+            if self._play_btn.is_toggled() != is_playing:
+                self._play_btn.set_toggled(is_playing)
 
     # ── UI Construction ─────────────────────────────────────────────────────────
 
@@ -103,8 +115,14 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.toolbar_frame.setObjectName("AniKinToolbar")
         self._scroll.setWidget(self.toolbar_frame)
 
-        # FlowLayout: buttons wrap to next row automatically
-        self.toolbar_layout = FlowLayout(self.toolbar_frame, margin=4, spacing=3)
+        # Horizontal layout: standard toolbar behavior, doesn't wrap unexpectedly
+        self.toolbar_layout = QtWidgets.QHBoxLayout(self.toolbar_frame)
+        self.toolbar_layout.setContentsMargins(4, 4, 4, 4)
+        self.toolbar_layout.setSpacing(3)
+        # Removing AlignLeft allows the expanding buttons to stretch and fill the space
+
+        # Allow horizontal scrolling if tools exceed window width
+        self._scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
 
         # Populate toolbar dynamically
         self.rebuild_toolbar()
@@ -128,8 +146,13 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self._clear_layout(self.toolbar_layout)
 
         cfg = settings.load_settings()
-        order = cfg["section_order"]
-        visible = cfg["visible_sections"]
+        order = cfg.get("section_order", [])
+        visible = cfg.get("visible_sections", [])
+        
+        # Update stylesheet in case theme changed
+        theme_name = cfg.get("theme", "Amber")
+        from anikin.ui.theme import get_stylesheet
+        self.setStyleSheet(get_stylesheet(theme_name))
 
         first = True
         for sec in order:
@@ -139,80 +162,64 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
                 self.toolbar_layout.addWidget(SectionSeparator())
             first = False
 
-            if sec == "Transform":
-                self._add_transform_section()
-            elif sec == "Tangents":
-                self._add_tangents_section()
-            elif sec == "Timing":
-                self._add_timing_section()
+            if sec == "Brand":
+                self._add_brand_section()
+            elif sec == "Selection":
+                self._add_selection_section()
+            elif sec == "Pose":
+                self._add_pose_section()
             elif sec == "Tween Slider":
                 self._add_tween_section()
-            elif sec == "Workflow":
-                self._add_workflow_section()
+            elif sec == "Tangents":
+                self._add_tangents_section()
+            elif sec == "Playback":
+                self._add_playback_section()
             elif sec == "Channels":
                 self._add_channels_section()
+            elif sec == "Modules":
+                self._add_modules_section()
             elif sec == "Curves":
                 self._add_curves_section()
-            elif sec == "Vis":
-                self._add_vis_section()
-            elif sec == "Sets":
-                self._add_sets_section()
-            elif sec == "Bookmarks":
-                self._add_bookmarks_section()
-            elif sec == "Poses":
-                self._add_poses_section()
-            elif sec == "Diagnostics":
-                self._add_diagnostics_section()
-            elif sec == "Pipeline":
-                self._add_pipeline_section()
-            elif sec == "Color":
-                self._add_color_section()
             elif sec == "Setup":
                 self._add_setup_section()
 
     # ── Section Builder Helpers ─────────────────────────────────────────────────
 
-    def _add_transform_section(self):
-        # Reset transform (first so it's the "undo" position)
+    def _add_brand_section(self):
+        """Group 0 — Brand Identity: AniKin logo label."""
+        logo = QtWidgets.QLabel("AniKin")
+        logo.setObjectName("AniKinLogo")
+        logo.setFixedWidth(54)
+        logo.setFixedHeight(28)
+        logo.setAlignment(QtCore.Qt.AlignCenter)
+        logo.setCursor(QtCore.Qt.PointingHandCursor)
+        logo.mousePressEvent = lambda e: settings_panel.show_panel(
+            active_tab=4, on_apply_callback=self.rebuild_toolbar
+        )
+        self.toolbar_layout.addWidget(logo)
+
+    def _add_selection_section(self):
+        """Group 1 — Selection Tools."""
         self.toolbar_layout.addWidget(ToolButton(
-            "reset", "Reset Pose (zero out translations/rotations)",
+            "selection_sets", "Selection Sets — save and recall control selections",
+            callback=selection_sets_panel.show_panel,
+            accent=True
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "bookmark", "Time Bookmarks — manage timeline bookmarks",
+            callback=bookmarks_panel.show_panel,
+            accent=True
+        ))
+
+    def _add_pose_section(self):
+        """Group 2 — Pose Tools."""
+        self.toolbar_layout.addWidget(ToolButton(
+            "reset", "Reset — return selected controls to default position",
             callback=AniMirror.reset_transform
         ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "align_all", "Align selected â†’ last (Translate + Rotate)",
-            callback=lambda: AniAlign.execute(translate=True, rotate=True)
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "align_translate", "Align Translation only",
-            callback=lambda: AniAlign.execute(translate=True, rotate=False)
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "align_rotate", "Align Rotation only",
-            callback=lambda: AniAlign.execute(translate=False, rotate=True)
-        ))
-        # Grounding tool
-        ground_btn = ToolButton(
-            "ground", "AniGround: Ground selected objects (lowest bbox point to Y=0)\n(Right-click for options)",
-            callback=lambda: AniGround.ground_objects(mode="individual")
-        )
-        ground_btn.set_context_menu([
-            ("Ground Individually", lambda: AniGround.ground_objects(mode="individual")),
-            ("Ground to Last Selected (Keep Offsets)", lambda: AniGround.ground_objects(mode="keep_offset"))
-        ])
-        self.toolbar_layout.addWidget(ground_btn)
 
-        # Pose tools (copy/paste/mirror)
-        self.toolbar_layout.addWidget(ToolButton(
-            "copy_pose", "Copy Pose to clipboard",
-            callback=AniMirror.copy_pose
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "paste_pose", "Paste Pose from clipboard",
-            callback=AniMirror.paste_pose
-        ))
-        
         mirror_btn = ToolButton(
-            "mirror_pose", "Mirror Pose (negate TX/TZ/RY)\n(Right-click for options)",
+            "mirror_pose", "Mirror Pose — flip pose to opposite side\n(Right-click for options)",
             callback=AniMirror.mirror_pose
         )
         mirror_btn.set_context_menu([
@@ -221,89 +228,131 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(mirror_btn)
 
+        self.toolbar_layout.addWidget(ToolButton(
+            "copy_pose", "Copy Pose to clipboard",
+            callback=AniMirror.copy_pose
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "paste_pose", "Paste Pose from clipboard",
+            callback=AniMirror.paste_pose
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "camera", "AniSnap — save and recall pose snapshots",
+            callback=snap_panel.show_panel,
+            accent=True
+        ))
+
+    def _add_tween_section(self):
+        """Group 3 — Tween / Ease Sliders."""
+        self.tween_slider = TweenSlider(label="TW", tooltip="Tween Slider (Linear Interpolation)")
+        self.tween_slider.value_changed.connect(lambda b: self._on_tween(b, "linear"))
+        self.toolbar_layout.addWidget(self.tween_slider)
+
+        self.ease_slider = TweenSlider(label="EA", tooltip="Ease Slider (Ease-In / Ease-Out Interpolation)")
+        self.ease_slider.value_changed.connect(lambda b: self._on_tween(b, "ease_in_out"))
+        self.toolbar_layout.addWidget(self.ease_slider)
+
+        smart_key_btn = ToolButton(
+            "smart_key", "Smart Key — set keys only on already-animated channels",
+            callback=lambda: AniTween.smart_key("all")
+        )
+        smart_key_btn.set_context_menu([
+            ("Smart Key All", lambda: AniTween.smart_key("all")),
+            ("Smart Key Translate", lambda: AniTween.smart_key("translate")),
+            ("Smart Key Rotate", lambda: AniTween.smart_key("rotate")),
+            ("Smart Key Scale", lambda: AniTween.smart_key("scale")),
+        ])
+        self.toolbar_layout.addWidget(smart_key_btn)
+
     def _add_tangents_section(self):
+        """Group 4 — Tangent Quick-Set."""
         for ttype, icon, tip in [
-            ("auto",   "auto",   "Auto tangent"),
-            ("flat",   "flat",   "Flat tangent (hold)"),
-            ("linear", "linear", "Linear tangent"),
-            ("step",   "step",   "Stepped tangent (pose-to-pose)"),
-            ("spline", "spline", "Spline tangent"),
+            ("spline", "spline", "Spline tangents"),
+            ("linear", "linear", "Linear tangents"),
+            ("flat",   "flat",   "Flat tangents (hold)"),
+            ("step",   "step",   "Stepped tangents (pose-to-pose)"),
+            ("auto",   "auto",   "Auto tangents"),
         ]:
             self.toolbar_layout.addWidget(ToolButton(
                 icon, tip,
-                callback=lambda t=ttype: AniTangents.set_tangent(t)
+                callback=lambda t=ttype: AniTangents.set_tangent(t),
+                size=24
             ))
 
-    def _add_timing_section(self):
-        # Cam-Lock-to-Object mode selector
-        self._cam_lock_mode = QtWidgets.QComboBox()
-        self._cam_lock_mode.addItems(["Track", "Aim"])
-        self._cam_lock_mode.setToolTip("Cam-Lock Mode: Track (offset) or Aim (focus)")
-        self._cam_lock_mode.setFixedWidth(60)
-        self.toolbar_layout.addWidget(self._cam_lock_mode)
-
-        # Cam-Lock-to-Object toggle
-        self._cam_lock_btn = ToggleToolButton(
-            icon_a="cam_unlock",
-            icon_b="cam_lock",
-            tooltip_a="Cam-Lock: Click to lock viewport camera on selected object",
-            tooltip_b="Cam-Lock: Click to unlock and restore camera",
-            callback=self._on_cam_lock_toggle,
-            accent_a=False,
-            accent_b=True,
-        )
-        self.toolbar_layout.addWidget(self._cam_lock_btn)
-
-        # Play / Pause Animation (icon-swapping toggle)
+    def _add_playback_section(self):
+        """Group 5 — Playback + Key Operations (the critical redesign group)."""
+        # Step Back
+        self.toolbar_layout.addWidget(ToolButton(
+            "first_key", "Step Back — jump to first keyframe",
+            callback=AniKeyNav.goto_first_key, size=24
+        ))
+        # Prev Key
+        self.toolbar_layout.addWidget(ToolButton(
+            "prev_key", "Previous Key — jump to previous keyframe",
+            callback=AniKeyNav.goto_prev_key, size=24
+        ))
+        # SET KEY — accent style (primary action)
+        self.toolbar_layout.addWidget(ToolButton(
+            "key", "Set Keyframe — places a keyframe on selected controls\nHotkey: S",
+            callback=AniChannels.key_channels,
+            accent=True
+        ))
+        # Play / Pause toggle
         self._play_btn = ToggleToolButton(
             icon_a="play",
             icon_b="pause",
-            tooltip_a="Play Animation",
+            tooltip_a="Play Animation\nHotkey: Alt+V",
             tooltip_b="Pause Animation",
             callback=self._on_play_pause_toggle,
             accent_a=False,
             accent_b=True,
         )
         self.toolbar_layout.addWidget(self._play_btn)
-        
-        # Key navigation: prev/next key, first/last key
+        # Next Key
         self.toolbar_layout.addWidget(ToolButton(
-            "first_key", "Jump to first keyframe",
-            callback=AniKeyNav.goto_first_key
+            "next_key", "Next Key — jump to next keyframe",
+            callback=AniKeyNav.goto_next_key, size=24
         ))
+        # Last Key / Step Forward
         self.toolbar_layout.addWidget(ToolButton(
-            "prev_key", "Jump to previous keyframe",
-            callback=AniKeyNav.goto_prev_key
+            "last_key", "Step Forward — jump to last keyframe",
+            callback=AniKeyNav.goto_last_key, size=24
         ))
+        # DELETE KEY — danger style
         self.toolbar_layout.addWidget(ToolButton(
-            "next_key", "Jump to next keyframe",
-            callback=AniKeyNav.goto_next_key
+            "delkey", "Delete Keyframe — remove keyframe at current time",
+            callback=AniChannels.delete_keys,
+            danger=True
         ))
+
+    def _add_channels_section(self):
+        """Group 6 — Channel Utilities (merged Lock/Unlock toggle)."""
+        self._lock_btn = ToggleToolButton(
+            icon_a="unlock",
+            icon_b="lock",
+            tooltip_a="Lock Channels — click to lock selected channels",
+            tooltip_b="Unlock Channels — click to unlock selected channels",
+            callback=self._on_lock_toggle,
+            accent_a=False,
+            accent_b=True,
+        )
+        self.toolbar_layout.addWidget(self._lock_btn)
+
+    def _add_modules_section(self):
+        """Group 7 — AniModules Quick Access (launcher buttons for sub-panels)."""
         self.toolbar_layout.addWidget(ToolButton(
-            "last_key", "Jump to last keyframe",
-            callback=AniKeyNav.goto_last_key
+            "offset", "AniOffset — stagger keys across selection (+2 frames each)\n(Right-click for options)",
+            callback=lambda: AniOffset.execute(offset_frames=2)
         ))
+
         # Nudge keys
         self.toolbar_layout.addWidget(ToolButton(
             "nudge_left", "Nudge keys 1 frame earlier",
-            callback=lambda: AniNudge.execute(-1)
+            callback=lambda: AniNudge.execute(-1), size=24
         ))
         self.toolbar_layout.addWidget(ToolButton(
             "nudge_right", "Nudge keys 1 frame later",
-            callback=lambda: AniNudge.execute(1)
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "nudge_left_fast", "Nudge keys 5 frames earlier",
-            callback=lambda: AniNudge.execute(-5)
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "nudge_right_fast", "Nudge keys 5 frames later",
-            callback=lambda: AniNudge.execute(5)
-        ))
-        # Anim offset
-        self.toolbar_layout.addWidget(ToolButton(
-            "offset", "Stagger keys across selection (+2 frames each)",
-            callback=lambda: AniOffset.execute(offset_frames=2)
+            callback=lambda: AniNudge.execute(1), size=24
         ))
 
         # Duplicate & Slide
@@ -317,28 +366,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(duplicate_btn)
 
-    def _add_tween_section(self):
-        self.tween_slider = TweenSlider(label="TW", tooltip="Tween Slider (Linear Interpolation)")
-        self.tween_slider.value_changed.connect(lambda b: self._on_tween(b, "linear"))
-        self.toolbar_layout.addWidget(self.tween_slider)
-
-        self.ease_slider = TweenSlider(label="EA", tooltip="Ease Slider (Ease-In / Ease-Out Interpolation)")
-        self.ease_slider.value_changed.connect(lambda b: self._on_tween(b, "ease_in_out"))
-        self.toolbar_layout.addWidget(self.ease_slider)
-
-        smart_key_btn = ToolButton(
-            "wand", "Smart Key — set keys only on already-animated channels",
-            callback=lambda: AniTween.smart_key("all")
-        )
-        smart_key_btn.set_context_menu([
-            ("Smart Key All", lambda: AniTween.smart_key("all")),
-            ("Smart Key Translate", lambda: AniTween.smart_key("translate")),
-            ("Smart Key Rotate", lambda: AniTween.smart_key("rotate")),
-            ("Smart Key Scale", lambda: AniTween.smart_key("scale")),
-        ])
-        self.toolbar_layout.addWidget(smart_key_btn)
-
-    def _add_workflow_section(self):
+        # Smart Bake
         self.toolbar_layout.addWidget(ToolButton(
             "bake_to_locator", "Smart Bake: Bake world-space motion → locator",
             callback=AniBake.bake_to_locator
@@ -347,6 +375,8 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "bake_from_locator", "Smart Bake: Paste locator motion → object",
             callback=AniBake.bake_from_locator
         ))
+
+        # AniWave
         wave_btn = ToolButton(
             "wave_sine", "AniWave: Propagate Overlap / Follow-Through\n(Right-click for options)",
             callback=lambda: AniWave.propagate_wave(),
@@ -357,34 +387,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(wave_btn)
 
-    def _add_channels_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "lock", "Lock channels",
-            callback=AniChannels.lock_channels
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "unlock", "Unlock channels",
-            callback=AniChannels.unlock_channels
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "key", "Set keyframe on channels",
-            callback=AniChannels.key_channels,
-            accent=True
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "delkey", "Delete keyframe at current time",
-            callback=AniChannels.delete_keys
-        ))
-
-    def _add_curves_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "euler", "Euler Filter â€” fix rotation flips",
-            callback=AniSmooth.euler_filter
-        ))
-        self.toolbar_layout.addWidget(ToolButton(
-            "smooth", "Smooth animation curves",
-            callback=lambda: AniSmooth.smooth_curves(strength=0.5, iterations=1)
-        ))
+        # AniNoise
         noise_btn = ToolButton(
             "activity", "AniNoise: Add Organic Micro-Jitter\n(Right-click for options)",
             callback=lambda: AniNoise.apply_noise(),
@@ -394,6 +397,50 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             ("Configure AniNoise...", noise_panel.show_panel)
         ])
         self.toolbar_layout.addWidget(noise_btn)
+
+        # AniCheck
+        self.toolbar_layout.addWidget(ToolButton(
+            "stethoscope", "AniCheck: Curve Health Diagnostics",
+            callback=check_panel.show_panel,
+            accent=True
+        ))
+
+        # AniColor
+        self.toolbar_layout.addWidget(ToolButton(
+            "palette", "AniColor: Keyframe Coloring & Labeling",
+            callback=anicolor_panel.show_panel,
+            accent=True
+        ))
+
+        # AniCamLock
+        self._cam_lock_mode = QtWidgets.QComboBox()
+        self._cam_lock_mode.addItems(["Track", "Aim"])
+        self._cam_lock_mode.setToolTip("Cam-Lock Mode: Track (offset) or Aim (focus)")
+        self._cam_lock_mode.setFixedWidth(60)
+        self._cam_lock_mode.setFixedHeight(28)
+        self.toolbar_layout.addWidget(self._cam_lock_mode)
+
+        self._cam_lock_btn = ToggleToolButton(
+            icon_a="cam_unlock",
+            icon_b="cam_lock",
+            tooltip_a="Cam-Lock: Click to lock viewport camera on selected object",
+            tooltip_b="Cam-Lock: Click to unlock and restore camera",
+            callback=self._on_cam_lock_toggle,
+            accent_a=False,
+            accent_b=True,
+        )
+        self.toolbar_layout.addWidget(self._cam_lock_btn)
+
+    def _add_curves_section(self):
+        """Group 8 — Curve editing tools."""
+        self.toolbar_layout.addWidget(ToolButton(
+            "euler", "Euler Filter — fix rotation flips",
+            callback=AniSmooth.euler_filter
+        ))
+        self.toolbar_layout.addWidget(ToolButton(
+            "smooth", "Smooth animation curves",
+            callback=lambda: AniSmooth.smooth_curves(strength=0.5, iterations=1)
+        ))
 
         # Cleanup curve
         cleanup_btn = ToolButton(
@@ -407,7 +454,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(cleanup_btn)
 
-    def _add_vis_section(self):
+        # Motion Trail
         trail_btn = ToolButton(
             "trail", "Toggle Motion Trail\n(Right-click for options)",
             callback=AniMotion.toggle_motion_trail
@@ -419,6 +466,7 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(trail_btn)
 
+        # Ghosting
         ghost_btn = ToolButton(
             "ghost", "Toggle Ghosting\n(Right-click for options)",
             callback=AniGhost.toggle_ghosting
@@ -430,51 +478,27 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         ])
         self.toolbar_layout.addWidget(ghost_btn)
 
-    def _add_sets_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "selection_sets", "Selection Sets panel",
-            callback=selection_sets_panel.show_panel,
-            accent=True
-        ))
-
-    def _add_bookmarks_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "bookmark", "Time Bookmarks panel",
-            callback=bookmarks_panel.show_panel,
-            accent=True
-        ))
-
-    def _add_poses_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "camera", "AniSnap: Visual Pose Library",
-            callback=snap_panel.show_panel,
-            accent=True
-        ))
-
-    def _add_color_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "palette", "AniColor: Keyframe Coloring & Labeling",
-            callback=anicolor_panel.show_panel,
-            accent=True
-        ))
-
-    def _add_diagnostics_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "stethoscope", "AniCheck: Curve Health Diagnostics",
-            callback=check_panel.show_panel,
-            accent=True
-        ))
-
-    def _add_pipeline_section(self):
-        self.toolbar_layout.addWidget(ToolButton(
-            "file_export", "AniExport: Export FBX with Unreal Validation",
-            callback=self._on_export
-        ))
+        # Grounding tool
+        ground_btn = ToolButton(
+            "ground", "AniGround: Ground selected objects\n(Right-click for options)",
+            callback=lambda: AniGround.ground_objects(mode="individual")
+        )
+        ground_btn.set_context_menu([
+            ("Ground Individually", lambda: AniGround.ground_objects(mode="individual")),
+            ("Ground to Last Selected (Keep Offsets)", lambda: AniGround.ground_objects(mode="keep_offset"))
+        ])
+        self.toolbar_layout.addWidget(ground_btn)
 
     def _add_setup_section(self):
+        """Group 9 — Settings / Help."""
         self.toolbar_layout.addWidget(ToolButton(
             "hotkeys", "Hotkey Manager",
             callback=hotkey_panel.show_panel
+        ))
+
+        self.toolbar_layout.addWidget(ToolButton(
+            "file_export", "AniExport: Export FBX with Unreal Validation",
+            callback=self._on_export
         ))
 
         settings_btn = ToolButton(
@@ -559,6 +583,15 @@ class AniKinWindow(MayaQWidgetDockableMixin, QtWidgets.QWidget):
                 self._cam_lock_btn.set_toggled(False)
         else:
             AniCamLock.unlock()
+
+    # ── Lock/Unlock callback ─────────────────────────────────────
+
+    def _on_lock_toggle(self, is_now_locked):
+        """Merged Lock/Unlock channel toggle."""
+        if is_now_locked:
+            AniChannels.lock_channels()
+        else:
+            AniChannels.unlock_channels()
 
     # ── Tween callback ──────────────────────────────────────────
 

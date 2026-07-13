@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="UnlockChannels" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.45 29.95">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #f97316;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+  <line class="cls-1" x1="16.74" y1="8.52" x2="29.51" y2="8.52"/>
+  <line class="cls-1" x1="18.99" y1="15.09" x2="29.51" y2="15.09"/>
+  <line class="cls-1" x1="18.99" y1="21.67" x2="29.51" y2="21.67"/>
+  <g>
+    <path class="cls-1" d="M13.53,23.75H4.43c-1.56,0-2.82-1.26-2.82-2.82v-6.03c0-1.56,1.26-2.82,2.82-2.82h9.1c1.56,0,2.82,1.26,2.82,2.82v6.03c0,1.56-1.26,2.82-2.82,2.82Z"/>
+    <path class="cls-1" d="M13.21,11.13v-2.54c0-1.19-.94-2.16-2.09-2.16h-4.92c-1.16,0-2.09.97-2.09,2.16v.57"/>
+  </g>
+</svg>
