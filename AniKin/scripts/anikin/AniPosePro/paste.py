@@ -91,6 +91,13 @@ def paste_clip_at_frame(clip_data, nodes, dest_frame, mode="replace", retime_fra
                     except Exception:
                         pass
 
+                    # UNLOCK FIRST: prevent Maya from auto-recalculating the opposite tangent!
+                    try:
+                        cmds.keyTangent(full_attr, time=(abs_time, abs_time), edit=True,
+                                        lock=False, weightLock=False)
+                    except Exception:
+                        pass
+
                     # Set angles and weights (if present or if fixed handle)
                     try:
                         kwargs = {}
@@ -108,7 +115,7 @@ def paste_clip_at_frame(clip_data, nodes, dest_frame, mode="replace", retime_fra
                     except Exception:
                         pass
 
-                    # Set tangent lock and weight lock states
+                    # RESTORE LOCK STATES
                     try:
                         cmds.keyTangent(full_attr, time=(abs_time, abs_time), edit=True,
                                         lock=key.get("tangents_locked", True),
