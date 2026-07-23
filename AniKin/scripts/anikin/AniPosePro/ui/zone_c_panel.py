@@ -7,7 +7,7 @@ import os
 import maya.cmds as cmds
 from anikin.core.qt_compat import QtWidgets, QtCore, QtGui
 from anikin.AniPosePro.history import get_history
-from anikin.AniPosePro.ui.graph_preview import MiniGraphPreviewWidget
+
 from anikin.AniPosePro.core.pose_blender import PoseBlender
 from anikin.AniPosePro.core.paste_controller import AnimPasteController
 
@@ -42,8 +42,9 @@ class ZoneCPanel(QtWidgets.QWidget):
         self.thumb_label = QtWidgets.QLabel()
         self.thumb_label.setFixedSize(264, 180)
         self.thumb_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.thumb_label.setStyleSheet("background: #161a1d; border: 1px solid #2a3038; border-radius: 4px;")
+        self.thumb_label.setStyleSheet("background: #2E2E2E; border: 1px solid #1F1F1F; border-radius: 4px;")
         self.thumb_label.setText("Select a pose or clip")
+        self.thumb_label.setStyleSheet("background: #2E2E2E; border: 1px solid #1F1F1F; border-radius: 4px; color: #6B6B6B; font-size: 11px;")
         layout.addWidget(self.thumb_label)
 
         # 2. Main Tabs Widget
@@ -127,7 +128,7 @@ class ZoneCPanel(QtWidgets.QWidget):
         form.setSpacing(4)
 
         self.info_name = QtWidgets.QLabel("—")
-        self.info_name.setStyleSheet("font-weight: bold; font-size: 13px; color: #f0f2f4;")
+        self.info_name.setStyleSheet("font-weight: bold; font-size: 13px; color: #E8E8E8;")
         self.info_rig = QtWidgets.QLabel("—")
         self.info_author = QtWidgets.QLabel("—")
         self.info_date = QtWidgets.QLabel("—")
@@ -151,10 +152,7 @@ class ZoneCPanel(QtWidgets.QWidget):
 
         lay.addLayout(form)
 
-        # Mini Graph Preview Widget
-        lay.addWidget(QtWidgets.QLabel("Curve Preview:"))
-        self.graph_preview = MiniGraphPreviewWidget()
-        lay.addWidget(self.graph_preview)
+
 
         self.edit_info_btn = QtWidgets.QPushButton("Edit Info")
         self.edit_info_btn.setStyleSheet("font-size: 10px; padding: 4px; margin-top: 6px;")
@@ -273,7 +271,7 @@ class ZoneCPanel(QtWidgets.QWidget):
             self.info_notes.setText("—")
             self.info_frames_lbl.setText("—")
             self.info_fps_lbl.setText("—")
-            self.graph_preview.set_clip_data(None)
+
             self.thumb_label.setText("Select a pose\nor clip")
             return
 
@@ -292,14 +290,14 @@ class ZoneCPanel(QtWidgets.QWidget):
             self.info_fps_lbl.setText(str(meta.get("fps", "—")))
             # Load the actual clip file for curve preview (not the sidecar metadata)
             clip_data = self._load_clip_file(entry.get("path", ""))
-            self.graph_preview.set_clip_data(clip_data)
+
         else:
             self.btn_stack.setCurrentIndex(0)
             self.pose_opts_grp.setVisible(True)
             self.clip_opts_grp.setVisible(False)
             self.info_frames_lbl.setText("—")
             self.info_fps_lbl.setText("—")
-            self.graph_preview.set_clip_data(None)
+
 
         # Thumbnail
         thumb = entry.get("thumbnail", entry.get("thumb", ""))

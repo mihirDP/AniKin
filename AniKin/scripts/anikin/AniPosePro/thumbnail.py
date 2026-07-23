@@ -92,14 +92,10 @@ def _capture_thumbnail_component(output_path, frame):
 # ── V2: Animated GIF Thumbnail for Clips ──────────────────────────────────────
 
 def capture_clip_thumbnail_gif(frame_start, frame_end, output_path,
-                               width=256, height=256, max_frames=12):
+                               width=256, height=192, max_fps=15):
     """
     Capture a multi-frame GIF thumbnail for an animation clip.
-    Samples up to max_frames evenly across the range.
-    Returns path to output .gif, or None on failure.
-
-    Falls back to static .jpg if Pillow is not available.
-    Uses offScreen=False to avoid the Maya 2024+ playblast regression.
+    4:3 resolution (256x192), caps at max_fps (15), seamless ping-pong loop.
     """
     import tempfile
 
@@ -112,10 +108,13 @@ def capture_clip_thumbnail_gif(frame_start, frame_end, output_path,
             return jpg_path
         return None
 
-    frame_count = frame_end - frame_start + 1
-    step = max(1, frame_count // max_frames)
+    # Calculate step size based on native FPS and max_fps ceiling
+    native_fps = float(cmds.currentUnit(q=True, time=True).replace("fps", "")) if "fps" in cmds.currentUnit(q=True, time=True) else 24.0
+    step = 1
+    if native_fps > max_fps:
+        step = max(1, int(round(native_fps / max_fps)))
+
     sample_frames = list(range(int(frame_start), int(frame_end) + 1, step))
-    sample_frames = sample_frames[:max_frames]
 
     tmp_dir = tempfile.mkdtemp(prefix="anikin_clip_thumb_")
     frame_paths = []
@@ -132,11 +131,9 @@ def capture_clip_thumbnail_gif(frame_start, frame_end, output_path,
                 viewer=False, offScreen=False
             )
             import glob
-            # playblast appends frame number with unpredictable padding
             candidates = glob.glob(jpg_base + "*.jpg")
             if candidates:
                 frame_paths.append(candidates[0])
-                # Delete any extra ones just in case
                 for c in candidates[1:]:
                     try: os.remove(c)
                     except: pass
@@ -147,10 +144,21 @@ def capture_clip_thumbnail_gif(frame_start, frame_end, output_path,
         return None
 
     images = [Image.open(p).convert("RGB") for p in frame_paths]
-    images[0].save(
+    
+    # Ping-pong loop (forward then reverse, excluding first/last to avoid double-play)
+    if len(images) > 2:
+        ping_pong = images + images[-2:0:-1]
+    else:
+        ping_pong = images
+
+    # Duration per frame in ms (1000 / fps)
+    target_fps = min(native_fps, max_fps)
+    frame_duration = int(1000.0 / target_fps)
+
+    ping_pong[0].save(
         output_path, save_all=True,
-        append_images=images[1:],
-        duration=80, loop=0
+        append_images=ping_pong[1:],
+        duration=frame_duration, loop=0
     )
 
     # Cleanup temp files

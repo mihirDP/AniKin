@@ -17,6 +17,7 @@ from anikin.AniPosePro.library.folder_tree import FolderTreeWidget
 from anikin.AniPosePro.library.grid_view import LibraryGridViewWidget
 from anikin.AniPosePro.library.list_view import LibraryListViewWidget
 from anikin.AniPosePro.ui.zone_c_panel import ZoneCPanel
+from anikin.AniPosePro.ui.graph_preview import CurvePreviewWidget
 from anikin.AniPosePro.ui.save_dialog import UnifiedSaveDialog
 from anikin.AniPosePro.ui.mirror_editor import MirrorTableEditorDialog
 from anikin.AniPosePro.core.paste_controller import AnimPasteController
@@ -30,9 +31,9 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
 
     def __init__(self, parent=None):
         super(AniPoseProWindow, self).__init__(parent)
-        self.setWindowTitle("AniPose Pro V3.1 — Studio Library Engine")
+        self.setWindowTitle("AniPose Pro V3.3 — Studio Library Engine")
         self.setObjectName("AniPoseProWindow")
-        self.resize(1100, 750)
+        self.resize(420, 640)
 
         self.library = PoseLibrary()
         self.index_cache = LibraryIndexCache(self.library.root)
@@ -53,77 +54,190 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
         self.setCentralWidget(main_widget)
 
         main_lay = QtWidgets.QVBoxLayout(main_widget)
-        main_lay.setContentsMargins(4, 4, 4, 4)
-        main_lay.setSpacing(4)
+        main_lay.setContentsMargins(0, 0, 0, 0)
+        main_lay.setSpacing(0)
 
-        # ── 1. Top Bar ───────────────────────────────────────────────────────
-        top_bar = QtWidgets.QHBoxLayout()
-        top_bar.setSpacing(8)
+        # ── 1. Category Tab Bar ──────────────────────────────────────────────
+        self.cat_tab_bar = QtWidgets.QTabBar()
+        self.cat_tab_bar.setExpanding(False)
+        self.cat_tab_bar.setDrawBase(False)
+        self.cat_tab_bar.addTab("All")
+        self.cat_tab_bar.addTab("Poses")
+        self.cat_tab_bar.addTab("Clips")
+        self.cat_tab_bar.addTab("Scripts")
+        self.cat_tab_bar.addTab("Sets")
+        self.cat_tab_bar.setCurrentIndex(0)
+        self.cat_tab_bar.setStyleSheet("""
+            QTabBar { background: #2E2E2E; border: none; }
+            QTabBar::tab {
+                background: transparent;
+                color: #9A9A9A;
+                padding: 8px 16px;
+                border: none;
+                border-bottom: 2px solid transparent;
+                font-size: 12px;
+                font-weight: 600;
+                min-width: 48px;
+            }
+            QTabBar::tab:selected {
+                color: #E8E8E8;
+                border-bottom: 2px solid #2FD3C2;
+            }
+            QTabBar::tab:hover:!selected {
+                color: #E8E8E8;
+                border-bottom: 2px solid #525252;
+            }
+        """)
+        main_lay.addWidget(self.cat_tab_bar)
+
+        # Thin separator under tabs
+        tab_sep = QtWidgets.QFrame()
+        tab_sep.setFixedHeight(1)
+        tab_sep.setStyleSheet("background: #1F1F1F;")
+        main_lay.addWidget(tab_sep)
+
+        # ── 2. Toolbar Row ───────────────────────────────────────────────────
+        toolbar = QtWidgets.QWidget()
+        toolbar.setFixedHeight(36)
+        toolbar.setStyleSheet("background: #383838;")
+        tb_lay = QtWidgets.QHBoxLayout(toolbar)
+        tb_lay.setContentsMargins(8, 4, 8, 4)
+        tb_lay.setSpacing(8)
 
         # Search bar
         self.search_edit = QtWidgets.QLineEdit()
-        self.search_edit.setPlaceholderText("🔍 Search poses, clips, tags, notes...")
+        self.search_edit.setPlaceholderText("🔍  Search...")
         self.search_edit.setClearButtonEnabled(True)
-        top_bar.addWidget(self.search_edit, stretch=2)
+        self.search_edit.setStyleSheet("""
+            QLineEdit {
+                background: #454545;
+                border: 1px solid #1F1F1F;
+                border-radius: 4px;
+                padding: 4px 8px;
+                color: #E8E8E8;
+                font-size: 11px;
+            }
+            QLineEdit:focus { border: 1px solid #2FD3C2; }
+        """)
+        tb_lay.addWidget(self.search_edit, stretch=1)
 
-        # Filter Drawer Toggle
-        self.filter_btn = QtWidgets.QPushButton("⚡ Filters")
+        # Filter funnel toggle
+        self.filter_btn = QtWidgets.QPushButton("▼")
         self.filter_btn.setCheckable(True)
-        top_bar.addWidget(self.filter_btn)
+        self.filter_btn.setFixedSize(28, 28)
+        self.filter_btn.setToolTip("Filters")
+        self.filter_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #9A9A9A;
+                border: none; font-size: 10px;
+            }
+            QPushButton:hover { color: #E8E8E8; }
+            QPushButton:checked { color: #2FD3C2; }
+        """)
+        tb_lay.addWidget(self.filter_btn)
 
-        # Category Tabs
-        self.cat_all = QtWidgets.QPushButton("All")
-        self.cat_poses = QtWidgets.QPushButton("Poses")
-        self.cat_clips = QtWidgets.QPushButton("Clips")
-        self.cat_scripts = QtWidgets.QPushButton("Scripts")
-        self.cat_sets = QtWidgets.QPushButton("Sets")
-        for b in [self.cat_all, self.cat_poses, self.cat_clips, self.cat_scripts, self.cat_sets]:
-            b.setCheckable(True)
-            top_bar.addWidget(b)
-        self.cat_all.setChecked(True)
+        # Separator
+        sep1 = QtWidgets.QFrame()
+        sep1.setFixedSize(1, 20)
+        sep1.setStyleSheet("background: #525252;")
+        tb_lay.addWidget(sep1)
 
-        top_bar.addStretch()
+        # ── Size Slider with Magnetic Breakpoints ────────────────────────────
+        self.size_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.size_slider.setRange(0, 4)   # 5 stops: XS=0, S=1, M=2, L=3, XL=4
+        self.size_slider.setValue(2)      # Default M
+        self.size_slider.setFixedWidth(100)
+        self.size_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.size_slider.setTickInterval(1)
+        self.size_slider.setPageStep(1)
+        self.size_slider.setSingleStep(1)
+        self.size_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 4px;
+                background: #525252;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                background: #2FD3C2;
+                width: 10px;
+                height: 10px;
+                margin: -3px 0;
+                border-radius: 5px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #2FD3C2;
+                border-radius: 2px;
+            }
+            QSlider::tick-mark {
+                background: #9A9A9A;
+            }
+        """)
+        tb_lay.addWidget(self.size_slider)
 
-        # Grid Size Selector (XS, S, M, L, XL)
-        size_lbl = QtWidgets.QLabel("Size:")
-        top_bar.addWidget(size_lbl)
-        self.btn_xs = QtWidgets.QPushButton("XS")
-        self.btn_s = QtWidgets.QPushButton("S")
-        self.btn_m = QtWidgets.QPushButton("M")
-        self.btn_l = QtWidgets.QPushButton("L")
-        self.btn_xl = QtWidgets.QPushButton("XL")
-        for b in [self.btn_xs, self.btn_s, self.btn_m, self.btn_l, self.btn_xl]:
-            b.setFixedWidth(30)
-            top_bar.addWidget(b)
+        # Separator
+        sep2 = QtWidgets.QFrame()
+        sep2.setFixedSize(1, 20)
+        sep2.setStyleSheet("background: #525252;")
+        tb_lay.addWidget(sep2)
 
-        # View Switcher (Grid / List)
-        self.btn_view_grid = QtWidgets.QPushButton("田 Grid")
-        self.btn_view_list = QtWidgets.QPushButton("≡ List")
-        top_bar.addWidget(self.btn_view_grid)
-        top_bar.addWidget(self.btn_view_list)
+        # ── Grid/List Toggle (single button) ──────────────────────────────────
+        self.view_toggle_btn = QtWidgets.QPushButton("田")
+        self.view_toggle_btn.setFixedSize(28, 28)
+        self.view_toggle_btn.setToolTip("Toggle Grid / List")
+        self.view_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #9A9A9A;
+                border: none; font-size: 14px;
+            }
+            QPushButton:hover { color: #E8E8E8; }
+        """)
+        self._view_is_grid = True
+        tb_lay.addWidget(self.view_toggle_btn)
 
-        # Capture / Save Button
-        self.save_btn = QtWidgets.QPushButton("+ Save New")
+        # Separator
+        sep3 = QtWidgets.QFrame()
+        sep3.setFixedSize(1, 20)
+        sep3.setStyleSheet("background: #525252;")
+        tb_lay.addWidget(sep3)
+
+        # + Save New Button
+        self.save_btn = QtWidgets.QPushButton("+ Save")
         self.save_btn.setObjectName("primary")
-        top_bar.addWidget(self.save_btn)
+        self.save_btn.setFixedHeight(26)
+        self.save_btn.setStyleSheet("""
+            QPushButton {
+                background: #2FD3C2; color: #1A1A1A;
+                border: none; border-radius: 4px;
+                font-weight: bold; font-size: 11px;
+                padding: 4px 12px;
+            }
+            QPushButton:hover { background: #1B7A70; }
+        """)
+        tb_lay.addWidget(self.save_btn)
 
-        main_lay.addLayout(top_bar)
+        main_lay.addWidget(toolbar)
 
-        # ── 2. Filter Accordion Drawer (Hidden by default) ───────────────────
+        # ── 2b. Filter Accordion Drawer (Hidden by default) ──────────────────
         self.filter_drawer = QtWidgets.QFrame()
-        self.filter_drawer.setStyleSheet("background: #161a1d; border-bottom: 1px solid #2a3038;")
+        self.filter_drawer.setStyleSheet("background: #383838; border-bottom: 1px solid #1F1F1F;")
         fd_lay = QtWidgets.QHBoxLayout(self.filter_drawer)
-        fd_lay.setContentsMargins(8, 4, 8, 4)
+        fd_lay.setContentsMargins(12, 6, 12, 6)
+        fd_lay.setSpacing(12)
 
-        fd_lay.addWidget(QtWidgets.QLabel("Recency:"))
+        recency_lbl = QtWidgets.QLabel("Recency:")
+        recency_lbl.setStyleSheet("color: #9A9A9A; font-size: 10px;")
+        fd_lay.addWidget(recency_lbl)
         self.recency_combo = QtWidgets.QComboBox()
         self.recency_combo.addItems(["All", "Today", "7 Days", "30 Days"])
         fd_lay.addWidget(self.recency_combo)
 
-        self.chk_fav_only = QtWidgets.QCheckBox("Favorites Only ♥")
+        self.chk_fav_only = QtWidgets.QCheckBox("♥ Favorites")
+        self.chk_fav_only.setStyleSheet("color: #E8E8E8; font-size: 10px;")
         fd_lay.addWidget(self.chk_fav_only)
 
-        fd_lay.addWidget(QtWidgets.QLabel("Min Rating:"))
+        rating_lbl = QtWidgets.QLabel("Min Rating:")
+        rating_lbl.setStyleSheet("color: #9A9A9A; font-size: 10px;")
+        fd_lay.addWidget(rating_lbl)
         self.rating_combo = QtWidgets.QComboBox()
         self.rating_combo.addItems(["Any", "1★", "2★", "3★", "4★", "5★"])
         fd_lay.addWidget(self.rating_combo)
@@ -153,22 +267,40 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
 
         self.splitter.setSizes([220, 600, 280])
         main_lay.addWidget(self.splitter, stretch=1)
+        
+        # ── 3.5 Curve Preview Strip ───────────────────────────────────────────
+        self.curve_preview = CurvePreviewWidget()
+        main_lay.addWidget(self.curve_preview)
 
         # ── 4. Bottom Status Bar ─────────────────────────────────────────────
         status_bar = QtWidgets.QHBoxLayout()
         self.sel_status_lbl = QtWidgets.QLabel("0 objects selected")
-        self.sel_status_lbl.setStyleSheet("color: #8b9299; font-size: 11px;")
+        self.sel_status_lbl.setStyleSheet("color: #9A9A9A; font-size: 11px;")
         status_bar.addWidget(self.sel_status_lbl)
 
         refresh_sel_btn = QtWidgets.QPushButton("🔄 Refresh Sel")
-        refresh_sel_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+        refresh_sel_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #9A9A9A;
+                border: 1px solid #1F1F1F; border-radius: 4px;
+                font-size: 10px; padding: 2px 6px;
+            }
+            QPushButton:hover { background: #454545; color: #E8E8E8; border-color: #2FD3C2; }
+        """)
         refresh_sel_btn.clicked.connect(self._update_selection_status)
         status_bar.addWidget(refresh_sel_btn)
 
         status_bar.addStretch()
 
         mirror_edit_btn = QtWidgets.QPushButton("⚙ MirrorTable Editor")
-        mirror_edit_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+        mirror_edit_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #9A9A9A;
+                border: 1px solid #1F1F1F; border-radius: 4px;
+                font-size: 10px; padding: 2px 6px;
+            }
+            QPushButton:hover { background: #454545; color: #E8E8E8; border-color: #2FD3C2; }
+        """)
         mirror_edit_btn.clicked.connect(self._open_mirror_editor)
         status_bar.addWidget(mirror_edit_btn)
 
@@ -182,23 +314,16 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
         self.chk_fav_only.toggled.connect(self._on_search_changed)
         self.rating_combo.currentIndexChanged.connect(self._on_search_changed)
 
-        # Category buttons
-        self.cat_all.clicked.connect(lambda: self._set_category("all"))
-        self.cat_poses.clicked.connect(lambda: self._set_category("pose"))
-        self.cat_clips.clicked.connect(lambda: self._set_category("clip"))
-        self.cat_scripts.clicked.connect(lambda: self._set_category("script"))
-        self.cat_sets.clicked.connect(lambda: self._set_category("selection"))
+        # Category tab bar
+        self._cat_map = {0: "all", 1: "pose", 2: "clip", 3: "script", 4: "selection"}
+        self.cat_tab_bar.currentChanged.connect(self._on_cat_tab_changed)
 
-        # Grid size presets
-        self.btn_xs.clicked.connect(lambda: self._set_grid_size("XS"))
-        self.btn_s.clicked.connect(lambda: self._set_grid_size("S"))
-        self.btn_m.clicked.connect(lambda: self._set_grid_size("M"))
-        self.btn_l.clicked.connect(lambda: self._set_grid_size("L"))
-        self.btn_xl.clicked.connect(lambda: self._set_grid_size("XL"))
+        # Size slider (magnetic breakpoints)
+        self._size_presets = ["XS", "S", "M", "L", "XL"]
+        self.size_slider.valueChanged.connect(self._on_size_slider_changed)
 
-        # View switcher
-        self.btn_view_grid.clicked.connect(lambda: self.center_stack.setCurrentIndex(0))
-        self.btn_view_list.clicked.connect(lambda: self.center_stack.setCurrentIndex(1))
+        # View toggle (single button)
+        self.view_toggle_btn.clicked.connect(self._on_view_toggle)
 
         # Folder Tree
         self.folder_tree.folder_selected.connect(self._on_folder_selected)
@@ -250,16 +375,30 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
     def _on_search_changed(self):
         self._update_item_views()
 
-    def _set_category(self, cat: str):
-        self.current_category = cat
-        for b, c in [(self.cat_all, "all"), (self.cat_poses, "pose"), (self.cat_clips, "clip"),
-                     (self.cat_scripts, "script"), (self.cat_sets, "selection")]:
-            b.setChecked(c == cat)
+    def _on_cat_tab_changed(self, index: int):
+        self.current_category = self._cat_map.get(index, "all")
         self._update_item_views()
 
-    def _set_grid_size(self, size: str):
-        self.grid_view.set_size_preset(size)
+    def _on_size_slider_changed(self, value: int):
+        preset = self._size_presets[value]
+        self.grid_view.set_size_preset(preset)
         self._update_item_views()
+
+    def _on_view_toggle(self):
+        self._view_is_grid = not self._view_is_grid
+        if self._view_is_grid:
+            self.center_stack.setCurrentIndex(0)
+            self.view_toggle_btn.setText("田")
+            self.view_toggle_btn.setToolTip("Switch to List")
+        else:
+            self.center_stack.setCurrentIndex(1)
+            self.view_toggle_btn.setText("≡")
+            self.view_toggle_btn.setToolTip("Switch to Grid")
+
+    def _set_grid_size(self, size: str):
+        """Legacy helper — maps preset name to slider position."""
+        idx = self._size_presets.index(size) if size in self._size_presets else 2
+        self.size_slider.setValue(idx)
 
     def _on_folder_selected(self, folder_rel: str):
         self.current_folder = folder_rel
@@ -268,6 +407,19 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
     def _on_item_selected(self, item_dict: dict, is_double_click: bool):
         is_clip = item_dict.get("type") == "clip"
         self.zone_c.set_entry(item_dict, is_clip=is_clip)
+        
+        # Update Curve Preview
+        path = item_dict.get("path")
+        if path and os.path.exists(path):
+            try:
+                import json
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.curve_preview.set_data(data, is_pose=not is_clip)
+            except Exception:
+                self.curve_preview.set_data(None)
+        else:
+            self.curve_preview.set_data(None)
 
         if is_double_click:
             self._on_zone_c_apply("full" if not is_clip else "paste_clip")
@@ -314,6 +466,61 @@ class AniPoseProWindow(MayaQWidgetDockableMixin, QtWidgets.QMainWindow):
                 except Exception:
                     pass
                 self.refresh_all()
+
+        elif action == "edit_thumbnail":
+            is_clip = item_dict.get("type") == "clip"
+            thumb_path = item_dict.get("thumbnail")
+            
+            if not thumb_path:
+                # Need a fallback path if it doesn't exist
+                base = os.path.splitext(path)[0]
+                thumb_path = base + (".gif" if is_clip else ".jpg")
+                item_dict["thumbnail"] = thumb_path
+                # Write to meta json
+                meta_path = base + ".meta.json"
+                if os.path.exists(meta_path):
+                    import json
+                    with open(meta_path, "r") as f:
+                        m = json.load(f)
+                    m["thumbnail"] = thumb_path
+                    with open(meta_path, "w") as f:
+                        json.dump(m, f, indent=4)
+
+            success = False
+            if not is_clip:
+                from anikin.AniPosePro.thumbnail import capture_viewport_thumbnail
+                success = capture_viewport_thumbnail(thumb_path, 256, 192)
+            else:
+                from anikin.AniPosePro.thumbnail import capture_clip_thumbnail_gif
+                meta = item_dict.get("meta", {})
+                start_frame = meta.get("start", int(cmds.playbackOptions(q=True, min=True)))
+                end_frame = meta.get("end", int(cmds.playbackOptions(q=True, max=True)))
+                
+                # Pop dialog for range
+                dlg = QtWidgets.QDialog(self)
+                dlg.setWindowTitle("Recapture Clip Thumbnail")
+                lay = QtWidgets.QFormLayout(dlg)
+                s_spin = QtWidgets.QSpinBox(); s_spin.setRange(-100000, 100000); s_spin.setValue(start_frame)
+                e_spin = QtWidgets.QSpinBox(); e_spin.setRange(-100000, 100000); e_spin.setValue(end_frame)
+                lay.addRow("Start:", s_spin)
+                lay.addRow("End:", e_spin)
+                bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+                bb.accepted.connect(dlg.accept)
+                bb.rejected.connect(dlg.reject)
+                lay.addRow(bb)
+                
+                if dlg.exec_() == QtWidgets.QDialog.Accepted:
+                    s = s_spin.value()
+                    e = e_spin.value()
+                    # Capture GIF
+                    if capture_clip_thumbnail_gif(s, e, thumb_path, 256, 192, 15):
+                        success = True
+
+            if success:
+                cmds.inViewMessage(amg="<hl>AniPose Pro</hl>: Thumbnail updated.", pos="topCenter", fade=True, fadeStayTime=1500)
+                self.refresh_all()
+            else:
+                cmds.inViewMessage(amg="<hl>AniPose Pro</hl>: Capture failed — viewport not visible or cancelled.", pos="topCenter", fade=True, fadeStayTime=2500)
 
         elif action == "pose_to_clip_bridge":
             # Converts a pose item into a 1-frame animation clip
@@ -498,7 +705,7 @@ def show_panel():
         _PANEL_INSTANCE = AniPoseProWindow()
 
     try:
-        _PANEL_INSTANCE.show(dockable=True, floating=True, area="right", allowedArea="all", width=1100, height=750)
+        _PANEL_INSTANCE.show(dockable=True, floating=True, area="right", allowedArea="all", width=420, height=640)
     except Exception:
         _PANEL_INSTANCE.show()
 

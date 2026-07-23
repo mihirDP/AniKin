@@ -73,14 +73,16 @@ class FolderTreeWidget(QtWidgets.QWidget):
         folder_map = {"": all_item}
 
         for root, dirs, files in os.walk(self.root_dir):
+            # Prune hidden directories and Studio Library item directories from traversal
+            sl_item_dirs = [d for d in dirs if d.endswith(".pose") or d.endswith(".anim") or d.endswith(".clip")]
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d != ".versions" and "_tmp_" not in d and d not in sl_item_dirs]
+            
             rel = os.path.relpath(root, self.root_dir)
-            if rel == ".":
-                continue
-            if "_tmp_" in rel:
+            if rel == "." or rel == "":
                 continue
 
             parent_rel = os.path.dirname(rel)
-            if parent_rel == ".":
+            if parent_rel == "." or parent_rel == "":
                 parent_rel = ""
 
             parent_item = folder_map.get(parent_rel, all_item)

@@ -76,7 +76,8 @@ def apply_pose_full(pose_data, nodes, as_keyframe=False, key_tangent="step",
 
     cmds.undoInfo(openChunk=True, chunkName="AniKin_PoseApply")
     try:
-        for ctrl, channels in pose_data.get("controls", {}).items():
+        controls = pose_data.get("controls", pose_data.get("objects", {}))
+        for ctrl, channels in controls.items():
             node = _resolve_node(ctrl, scene_ns)
             if node is None:
                 skipped.append(ctrl)
@@ -120,7 +121,8 @@ def apply_pose_partial(pose_data, nodes, channel_filter=None, pose_name="pose"):
     applied = 0
     cmds.undoInfo(openChunk=True, chunkName="AniKin_PoseApplyPartial")
     try:
-        for ctrl, channels in pose_data.get("controls", {}).items():
+        controls = pose_data.get("controls", pose_data.get("objects", {}))
+        for ctrl, channels in controls.items():
             node = _resolve_node(ctrl, scene_ns)
             if node is None:
                 continue
@@ -151,7 +153,8 @@ def apply_pose_mirror(pose_data, nodes, pose_name="pose"):
     applied = 0
     cmds.undoInfo(openChunk=True, chunkName="AniKin_PoseMirrorApply")
     try:
-        for ctrl, channels in pose_data.get("controls", {}).items():
+        controls = pose_data.get("controls", pose_data.get("objects", {}))
+        for ctrl, channels in controls.items():
             node = _resolve_node(ctrl, scene_ns)
             if node is None:
                 continue
@@ -184,7 +187,8 @@ def apply_pose_additive(pose_data, nodes, pose_name="pose"):
     applied = 0
     cmds.undoInfo(openChunk=True, chunkName="AniKin_PoseAdditiveApply")
     try:
-        for ctrl, channels in pose_data.get("controls", {}).items():
+        controls = pose_data.get("controls", pose_data.get("objects", {}))
+        for ctrl, channels in controls.items():
             node = _resolve_node(ctrl, scene_ns)
             if node is None:
                 continue
@@ -246,7 +250,8 @@ class PoseBlender:
         """t: 0.0 = current pose, 1.0 = full library pose."""
         if not self._active:
             return
-        for ctrl, channels in self._pose_data.get("controls", {}).items():
+        controls = self._pose_data.get("controls", self._pose_data.get("objects", {}))
+        for ctrl, channels in controls.items():
             node = _resolve_node(ctrl, self._scene_ns)
             if node is None or node not in self._snapshot:
                 continue

@@ -1,6 +1,9 @@
 """
-thumbnail_card.py — Multi-Size Thumbnail Card for AniPose Pro V3.1 Grid View.
-Supports XS/S/M/L/XL sizing, type badges, animated GIF playback on hover, pose diff overlay, favorite toggle, and rich context menu.
+thumbnail_card.py — Pose / Clip Tile for AniPose Pro V3.3.
+Aesthetically polished card with GIF auto-play, hover scrub bar,
+type-dot badge, edit-thumbnail pencil, and drag-to-apply.
+
+Design tokens from PRD §2 / §4.1-4.3.
 """
 
 import os
@@ -9,20 +12,18 @@ from anikin.core.qt_compat import QtWidgets, QtCore, QtGui
 
 
 class ThumbnailCardWidget(QtWidgets.QFrame):
-    """
-    Card widget matching Section 7.2 of AniPose Pro PRD.
-    """
 
-    card_clicked = QtCore.Signal(dict, bool)        # (item_dict, is_double_click)
-    favorite_toggled = QtCore.Signal(dict, bool)    # (item_dict, new_fav_state)
-    action_requested = QtCore.Signal(str, dict)     # (action_name, item_dict)
+    card_clicked = QtCore.Signal(dict, bool)
+    favorite_toggled = QtCore.Signal(dict, bool)
+    action_requested = QtCore.Signal(str, dict)
 
+    # 4:3 thumbnail ratios per preset
     CARD_SIZES = {
-        "XS": (80, 80),
-        "S": (120, 120),
-        "M": (160, 160),
-        "L": (200, 200),
-        "XL": (256, 256)
+        "XS": (96, 72),
+        "S":  (120, 90),
+        "M":  (160, 120),
+        "L":  (200, 150),
+        "XL": (256, 192),
     }
 
     def __init__(self, item_dict: dict, size_preset: str = "M", parent=None):
@@ -31,209 +32,262 @@ class ThumbnailCardWidget(QtWidgets.QFrame):
         self.size_preset = size_preset
         self.is_selected = False
         self._movie = None
+        self._hovered = False
+        self._scrub_pct = 0.0
+        self._drag_start = None
 
-        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.setObjectName("card")
+        self.setObjectName("tile")
+        self.setMouseTracking(True)
+        self._build()
+        self._apply_style()
 
-        self._build_ui()
-        self.update_style()
+    # ── build ──────────────────────────────────────────────────────────────────
 
-    def _build_ui(self):
-        w, h = self.CARD_SIZES.get(self.size_preset, (160, 160))
-        self.setFixedSize(w + 16, h + 50)
+    def _build(self):
+        tw, th = self.CARD_SIZES.get(self.size_preset, (160, 120))
+        card_w = tw + 16        # 8px padding each side
+        card_h = th + 40        # label row + meta row
+        self.setFixedSize(card_w, card_h)
 
-        lay = QtWidgets.QVBoxLayout(self)
-        lay.setContentsMargins(6, 6, 6, 6)
-        lay.setSpacing(4)
+        root = QtWidgets.QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # Image Container Stack
-        self.img_container = QtWidgets.QFrame()
-        self.img_container.setFixedSize(w, h)
-        self.img_container.setStyleSheet("background: #161a1d; border-radius: 4px;")
+        # ── Thumbnail Area ─────────────────────────────────────────────────
+        self._thumb_frame = QtWidgets.QWidget()
+        self._thumb_frame.setFixedSize(card_w, th)
+        self._thumb_frame.setMouseTracking(True)
+        self._thumb_frame.setStyleSheet("border-top-left-radius: 4px; border-top-right-radius: 4px;")
 
-        img_lay = QtWidgets.QVBoxLayout(self.img_container)
-        img_lay.setContentsMargins(0, 0, 0, 0)
+        # Image label fills thumb frame
+        self._img = QtWidgets.QLabel(self._thumb_frame)
+        self._img.setFixedSize(card_w, th)
+        self._img.setAlignment(QtCore.Qt.AlignCenter)
+        self._img.setStyleSheet("background: #2E2E2E; border-top-left-radius: 4px; border-top-right-radius: 4px;")
+        self._img.setMouseTracking(True)
 
-        self.img_lbl = QtWidgets.QLabel()
-        self.img_lbl.setAlignment(QtCore.Qt.AlignCenter)
-        img_lay.addWidget(self.img_lbl)
+        # Scrub progress bar (bottom edge of thumbnail)
+        self._scrub_bar = QtWidgets.QFrame(self._thumb_frame)
+        self._scrub_bar.setFixedHeight(3)
+        self._scrub_bar.setStyleSheet("background: #2FD3C2; border-radius: 0px;")
+        self._scrub_bar.setGeometry(0, th - 3, 0, 3)
+        self._scrub_bar.hide()
 
-        # Type Badge (Top-Left)
+        # Hover badge cluster (top-right)
+        self._edit_btn = QtWidgets.QPushButton("✎", self._thumb_frame)
+        self._edit_btn.setFixedSize(22, 22)
+        self._edit_btn.setCursor(QtCore.Qt.PointingHandCursor)
+        self._edit_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(0,0,0,0.55); color: #E8E8E8;
+                border-radius: 4px; font-size: 11px; border: none;
+            }
+            QPushButton:hover { background: rgba(0,0,0,0.8); }
+        """)
+        self._edit_btn.setToolTip("Edit Thumbnail")
+        self._edit_btn.move(card_w - 50, 4)
+        self._edit_btn.clicked.connect(lambda: self.action_requested.emit("edit_thumbnail", self.item_data))
+        self._edit_btn.hide()
+
+        root.addWidget(self._thumb_frame)
+
+        # ── Label Row ──────────────────────────────────────────────────────
+        label_w = QtWidgets.QWidget()
+        label_w.setFixedHeight(40)
+        label_w.setStyleSheet("background: transparent;")
+        ll = QtWidgets.QVBoxLayout(label_w)
+        ll.setContentsMargins(8, 4, 8, 4)
+        ll.setSpacing(1)
+
+        # Name + type dot
+        name_row = QtWidgets.QHBoxLayout()
+        name_row.setSpacing(4)
+
+        self._name_lbl = QtWidgets.QLabel()
+        self._name_lbl.setStyleSheet("color: #E8E8E8; font-size: 11px; font-weight: 500; background: transparent;")
+        name = self.item_data.get("name", "Untitled")
+        fm = QtGui.QFontMetrics(self._name_lbl.font())
+        elided = fm.elidedText(name, QtCore.Qt.ElideRight, tw - 16)
+        self._name_lbl.setText(elided)
+        name_row.addWidget(self._name_lbl)
+        name_row.addStretch()
+
+        # Type dot (6px)
         itype = self.item_data.get("type", "pose")
-        badge_text = "P"
-        badge_bg = "#3a9e6e"
-        if itype == "clip":
-            dur = self.item_data.get("duration") or self.item_data.get("frame_count") or 0
-            badge_text = f"C {dur}f" if dur else "C"
-            badge_bg = "#d4860a"
-        elif itype == "script":
-            badge_text = "S"
-            badge_bg = "#9b59b6"
-        elif itype == "mirror":
-            badge_text = "M"
-            badge_bg = "#2980b9"
-        elif itype == "selection":
-            badge_text = "Sel"
-            badge_bg = "#e67e22"
+        dot_color = "#C9A227" if itype == "clip" else "#2FD3C2"
+        dot = QtWidgets.QLabel("●")
+        dot.setFixedSize(10, 10)
+        dot.setStyleSheet(f"color: {dot_color}; font-size: 8px; background: transparent;")
+        dot.setAlignment(QtCore.Qt.AlignCenter)
+        name_row.addWidget(dot)
 
-        self.type_badge = QtWidgets.QLabel(badge_text, self.img_container)
-        self.type_badge.setStyleSheet(f"background: {badge_bg}; color: #ffffff; font-weight: bold; font-size: 9px; padding: 2px 4px; border-bottom-right-radius: 4px;")
-        self.type_badge.move(0, 0)
+        ll.addLayout(name_row)
 
-        # Favorite Heart Toggle (Top-Right)
-        self.fav_btn = QtWidgets.QPushButton("♥" if self.item_data.get("favorite") else "♡", self.img_container)
-        self.fav_btn.setFixedSize(22, 22)
-        self.fav_btn.setStyleSheet("background: transparent; color: #e74c3c; border: none; font-size: 14px;")
-        self.fav_btn.move(w - 24, 2)
-        self.fav_btn.clicked.connect(self._toggle_favorite)
-
-        # Diff Overlay Label (for pose hovers)
-        self.diff_overlay = QtWidgets.QLabel(self.img_container)
-        self.diff_overlay.setFixedSize(w, h)
-        self.diff_overlay.setStyleSheet("background: rgba(13, 15, 16, 0.85); color: #f0f2f4; font-size: 10px; padding: 6px;")
-        self.diff_overlay.setWordWrap(True)
-        self.diff_overlay.hide()
-
-        lay.addWidget(self.img_container)
-
-        # Text Info
-        self.name_lbl = QtWidgets.QLabel(self.item_data.get("name", "Item"))
-        self.name_lbl.setStyleSheet("font-weight: 500; font-size: 11px; color: #f0f2f4;")
-        lay.addWidget(self.name_lbl)
-
-        # Rating + Color Dot
-        bottom_h = QtWidgets.QHBoxLayout()
-        bottom_h.setContentsMargins(0, 0, 0, 0)
-
-        rating = self.item_data.get("rating", 0)
-        stars = "★" * rating + "☆" * (5 - rating)
-        self.rating_lbl = QtWidgets.QLabel(stars)
-        self.rating_lbl.setStyleSheet("color: #d4860a; font-size: 10px;")
-
-        color = self.item_data.get("color", "#3a9e6e")
-        self.color_dot = QtWidgets.QLabel("●")
-        self.color_dot.setStyleSheet(f"color: {color}; font-size: 10px;")
-
-        bottom_h.addWidget(self.rating_lbl)
-        bottom_h.addStretch()
-        bottom_h.addWidget(self.color_dot)
-        lay.addLayout(bottom_h)
-
-        self._load_thumbnail()
-
-    def _load_thumbnail(self):
-        thumb_path = self.item_data.get("thumbnail", "")
-        w, h = self.CARD_SIZES.get(self.size_preset, (160, 160))
-
-        if thumb_path and os.path.exists(thumb_path):
-            if thumb_path.endswith(".gif"):
-                self._movie = QtGui.QMovie(thumb_path)
-                self._movie.setScaledSize(QtCore.QSize(w, h))
-                self.img_lbl.setMovie(self._movie)
-                self._movie.jumpToFrame(0)
-            else:
-                pix = QtGui.QPixmap(thumb_path)
-                if not pix.isNull():
-                    self.img_lbl.setPixmap(pix.scaled(w, h, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
-                else:
-                    self.img_lbl.setText(self.item_data.get("name", "")[:4])
-        else:
-            self.img_lbl.setText(self.item_data.get("name", "")[:4])
-
-    def _toggle_favorite(self):
-        new_state = not self.item_data.get("favorite", False)
-        self.item_data["favorite"] = new_state
-        self.fav_btn.setText("♥" if new_state else "♡")
-        self.favorite_toggled.emit(self.item_data, new_state)
-
-    def set_selected(self, selected: bool):
-        self.is_selected = selected
-        self.update_style()
-
-    def update_style(self):
-        if self.is_selected:
-            self.setStyleSheet("QFrame#card { background: #1e2428; border: 2px solid #d4860a; border-radius: 6px; }")
-        else:
-            self.setStyleSheet("QFrame#card { background: #161a1d; border: 1px solid #2a3038; border-radius: 6px; } QFrame#card:hover { border-color: #404854; }")
-
-    def enterEvent(self, event):
-        super(ThumbnailCardWidget, self).enterEvent(event)
-        # Start GIF playback on hover for clips
-        if self._movie:
-            self._movie.start()
-
-        # Show diff overlay for pose items if controls exist
-        if self.item_data.get("type") == "pose":
-            self._show_diff_overlay()
-
-    def leaveEvent(self, event):
-        super(ThumbnailCardWidget, self).leaveEvent(event)
-        if self._movie:
-            self._movie.stop()
-            self._movie.jumpToFrame(0)
-        self.diff_overlay.hide()
-
-    def _show_diff_overlay(self):
+        # Meta line
         meta = self.item_data.get("meta", {})
-        controls = meta.get("controls", {})
-        if not controls:
-            return
+        if itype == "clip":
+            frames = meta.get("duration", meta.get("frame_count", 0))
+            start = meta.get("start", 0)
+            end = meta.get("end", 0)
+            meta_txt = f"{frames}f · {start}–{end}"
+        else:
+            tags = meta.get("tags", [])
+            if tags:
+                meta_txt = ", ".join(tags[:3])
+            else:
+                meta_txt = meta.get("rig_hint", meta.get("rig", ""))
 
-        diffs = []
-        sel = cmds.ls(selection=True, long=True) or []
+        self._meta_lbl = QtWidgets.QLabel(meta_txt)
+        self._meta_lbl.setStyleSheet("color: #9A9A9A; font-size: 9px; background: transparent;")
+        ll.addWidget(self._meta_lbl)
 
-        for ctrl, attrs in list(controls.items())[:5]:
-            scene_node = ctrl
-            if not cmds.objExists(scene_node):
-                continue
-            for attr, target_val in list(attrs.items())[:3]:
-                try:
-                    curr = cmds.getAttr(f"{scene_node}.{attr}")
-                    delta = abs(curr - target_val)
-                    if delta > 0.01:
-                        diffs.append(f"{ctrl.split(':')[-1]}.{attr}: Δ{delta:.2f}")
-                except Exception:
-                    pass
+        root.addWidget(label_w)
 
-        if diffs:
-            self.diff_overlay.setText("Diff Preview:\n" + "\n".join(diffs))
-            self.diff_overlay.show()
+        # Load thumbnail image / GIF
+        self._load_thumb()
 
-    def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
+    def _load_thumb(self):
+        path = self.item_data.get("thumbnail", "")
+        tw, th = self.CARD_SIZES.get(self.size_preset, (160, 120))
+        cw = tw + 16
+
+        if path and os.path.exists(path):
+            if path.lower().endswith(".gif"):
+                self._movie = QtGui.QMovie(path)
+                self._movie.setScaledSize(QtCore.QSize(cw, th))
+                self._img.setMovie(self._movie)
+                # Auto-play GIF so preview is always alive
+                self._movie.start()
+            else:
+                pix = QtGui.QPixmap(path)
+                if not pix.isNull():
+                    self._img.setPixmap(pix.scaled(cw, th, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+                else:
+                    self._set_placeholder()
+        else:
+            self._set_placeholder()
+
+    def _set_placeholder(self):
+        self._img.setText(self.item_data.get("name", "?")[:3].upper())
+        self._img.setStyleSheet("""
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #383838, stop:1 #2E2E2E);
+            color: #6B6B6B; font-size: 18px; font-weight: bold;
+            border-top-left-radius: 4px; border-top-right-radius: 4px;
+        """)
+
+    # ── styling ────────────────────────────────────────────────────────────────
+
+    def _apply_style(self):
+        if self.is_selected:
+            border = "2px solid #2FD3C2"
+            bg = "#383838"
+        elif self._hovered:
+            border = "1px solid rgba(47, 211, 194, 0.4)"
+            bg = "#454545"
+        else:
+            border = "1px solid #1F1F1F"
+            bg = "#383838"
+        self.setStyleSheet(f"""
+            QFrame#tile {{
+                background: {bg};
+                border: {border};
+                border-radius: 4px;
+            }}
+        """)
+
+    def set_selected(self, sel: bool):
+        self.is_selected = sel
+        self._apply_style()
+
+    # ── hover / scrub ──────────────────────────────────────────────────────────
+
+    def enterEvent(self, ev):
+        super().enterEvent(ev)
+        self._hovered = True
+        self._apply_style()
+        self._edit_btn.show()
+        if self._movie and self.item_data.get("type") == "clip":
+            self._scrub_bar.show()
+
+    def leaveEvent(self, ev):
+        super().leaveEvent(ev)
+        self._hovered = False
+        self._apply_style()
+        self._edit_btn.hide()
+        self._scrub_bar.hide()
+
+    def mouseMoveEvent(self, ev):
+        super().mouseMoveEvent(ev)
+        # Scrub GIF on horizontal mouse movement
+        if self._movie and self._hovered and self.item_data.get("type") == "clip":
+            w = self._thumb_frame.width()
+            x = max(0, min(w, ev.pos().x()))
+            pct = x / float(w) if w else 0
+            fc = self._movie.frameCount()
+            if fc > 0:
+                self._movie.jumpToFrame(int(pct * (fc - 1)))
+                self._scrub_bar.setGeometry(0, self._thumb_frame.height() - 3, max(3, int(pct * w)), 3)
+
+    # ── click / double-click / drag ────────────────────────────────────────────
+
+    def mousePressEvent(self, ev):
+        if ev.button() == QtCore.Qt.LeftButton:
+            self._drag_start = ev.pos()
             self.card_clicked.emit(self.item_data, False)
-        super(ThumbnailCardWidget, self).mousePressEvent(event)
+        super().mousePressEvent(ev)
 
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
+    def mouseReleaseEvent(self, ev):
+        self._drag_start = None
+        super().mouseReleaseEvent(ev)
+
+    def mouseDoubleClickEvent(self, ev):
+        if ev.button() == QtCore.Qt.LeftButton:
             self.card_clicked.emit(self.item_data, True)
-        super(ThumbnailCardWidget, self).mouseDoubleClickEvent(event)
+        super().mouseDoubleClickEvent(ev)
 
-    def contextMenuEvent(self, event):
-        menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("QMenu { background: #161a1d; border: 1px solid #2a3038; } QMenu::item:selected { background: #2a3038; color: #d4860a; }")
+    # ── context menu ───────────────────────────────────────────────────────────
 
-        act_rename = menu.addAction("Rename")
-        act_move = menu.addAction("Move to Folder")
-        act_dup = menu.addAction("Duplicate")
-        menu.addSeparator()
+    def contextMenuEvent(self, ev):
+        m = QtWidgets.QMenu(self)
+        m.setStyleSheet("""
+            QMenu {
+                background: #454545; color: #E8E8E8;
+                border: 1px solid #1F1F1F; border-radius: 4px;
+                padding: 4px 0;
+            }
+            QMenu::item { padding: 6px 20px; }
+            QMenu::item:selected { background: #525252; color: #2FD3C2; }
+            QMenu::separator { height: 1px; background: #1F1F1F; margin: 4px 8px; }
+        """)
+
+        a_apply = m.addAction("▶  Apply")
+        m.addSeparator()
+        a_thumb = m.addAction("✎  Edit Thumbnail")
+        a_rename = m.addAction("Rename")
+        a_move = m.addAction("Move to Folder")
+        a_dup = m.addAction("Duplicate")
+        m.addSeparator()
 
         if self.item_data.get("type") == "pose":
-            act_bridge = menu.addAction("Turn into Clip from Timeline (Bridge)")
-            act_bridge.triggered.connect(lambda: self.action_requested.emit("pose_to_clip_bridge", self.item_data))
+            a_bridge = m.addAction("Convert to Clip")
+            a_bridge.triggered.connect(lambda: self.action_requested.emit("pose_to_clip_bridge", self.item_data))
 
         if self.item_data.get("type") == "clip":
-            act_split = menu.addAction("Split at Current Frame")
-            act_split.triggered.connect(lambda: self.action_requested.emit("split_clip", self.item_data))
+            a_split = m.addAction("Split at Current Frame")
+            a_split.triggered.connect(lambda: self.action_requested.emit("split_clip", self.item_data))
 
-        menu.addSeparator()
-        act_path = menu.addAction("Copy Path to Clipboard")
-        act_del = menu.addAction("Delete")
+        m.addSeparator()
+        a_path = m.addAction("Copy Path")
+        a_del = m.addAction("Delete")
+        a_del.setStyleSheet("color: #D9483D;")
 
-        act_rename.triggered.connect(lambda: self.action_requested.emit("rename", self.item_data))
-        act_move.triggered.connect(lambda: self.action_requested.emit("move", self.item_data))
-        act_dup.triggered.connect(lambda: self.action_requested.emit("duplicate", self.item_data))
-        act_path.triggered.connect(lambda: self.action_requested.emit("copy_path", self.item_data))
-        act_del.triggered.connect(lambda: self.action_requested.emit("delete", self.item_data))
+        a_apply.triggered.connect(lambda: self.action_requested.emit("apply", self.item_data))
+        a_thumb.triggered.connect(lambda: self.action_requested.emit("edit_thumbnail", self.item_data))
+        a_rename.triggered.connect(lambda: self.action_requested.emit("rename", self.item_data))
+        a_move.triggered.connect(lambda: self.action_requested.emit("move", self.item_data))
+        a_dup.triggered.connect(lambda: self.action_requested.emit("duplicate", self.item_data))
+        a_path.triggered.connect(lambda: self.action_requested.emit("copy_path", self.item_data))
+        a_del.triggered.connect(lambda: self.action_requested.emit("delete", self.item_data))
 
-        menu.exec_(event.globalPos())
+        m.exec_(ev.globalPos())
