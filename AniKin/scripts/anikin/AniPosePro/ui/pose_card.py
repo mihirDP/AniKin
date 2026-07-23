@@ -14,12 +14,14 @@ from anikin.AniPosePro.apply import (
     begin_blend, update_blend, commit_blend, cancel_blend
 )
 
-
 class PoseCard(QtWidgets.QFrame):
+    pose_selected = QtCore.Signal(dict)
+
     def __init__(self, pose_entry, parent=None):
         super(PoseCard, self).__init__(parent)
         self._entry = pose_entry
         self._blend_start_x = None
+        self._selected = False
         self.setFixedSize(130, 150)
         self.setToolTip(pose_entry.get("name", ""))
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -76,12 +78,36 @@ class PoseCard(QtWidgets.QFrame):
             
         layout.addWidget(self.name_label)
 
+    def set_selected(self, state):
+        self._selected = state
+        if state:
+            self.setStyleSheet("""
+                PoseCard {
+                    background-color: #33281a;
+                    border: 2px solid #d4860a;
+                    border-radius: 4px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                PoseCard {
+                    background-color: #2a2a2a;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                }
+                PoseCard:hover {
+                    border: 1px solid #d4860a;
+                    background-color: #333;
+                }
+            """)
+
     # ── Interaction ────────────────────────────────────────────────────────────
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
-            # Full apply on click
-            self._apply_pose()
+            data = self._get_pose_data()
+            if data:
+                self.pose_selected.emit(data)
         elif event.button() == MIDDLE_BUTTON:
             # Begin MMB Blend
             self._blend_start_x = event.x()
@@ -95,6 +121,10 @@ class PoseCard(QtWidgets.QFrame):
                 begin_blend(pose_data, nodes)
             except Exception as e:
                 cmds.warning(f"AniPose Pro: Failed to read pose data for blend: {e}")
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self._apply_pose()
 
     def mouseMoveEvent(self, event):
         if self._blend_start_x is not None:

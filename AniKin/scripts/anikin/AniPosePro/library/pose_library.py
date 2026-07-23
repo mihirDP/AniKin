@@ -1,5 +1,5 @@
 """
-library.py — Core pose library I/O for AniPose Pro.
+pose_library.py — Core pose library I/O for AniPose Pro.
 
 Handles save, load, list, delete and overwrite of .pose files.
 Each pose is stored as JSON + a .meta.json sidecar + a .thumb.jpg thumbnail.
@@ -27,8 +27,12 @@ class PoseLibrary:
     A user can have multiple PoseLibrary instances (local + shared).
     """
 
-    def __init__(self, root_path, name="Local"):
+    def __init__(self, root_path=None, name="Local"):
         self.name = name
+        if root_path is None:
+            # Default library location
+            user_dir = os.path.expanduser("~")
+            root_path = os.path.join(user_dir, "AniPoseLibrary")
         self.root = os.path.normpath(root_path)
         os.makedirs(self.root, exist_ok=True)
         self._ensure_config()
@@ -55,21 +59,6 @@ class PoseLibrary:
                   rating=0, favourite=False):
         """
         Save a pose from the current Maya scene values of `nodes`.
-
-        Args:
-            nodes:        list of Maya node names (long or short).
-            name:         Display name for the pose entry.
-            folder:       Relative subfolder path inside the library root.
-            tags:         list of str tags.
-            author:       Author string; defaults to OS user.
-            project:      Optional project name string.
-            notes:        Free-text annotation.
-            is_additive:  If True, values stored are deltas vs delta_source.
-            delta_source: dict {ctrl_no_ns: {attr: base_val}} for additive mode.
-            rating:       int 0–5.
-            favourite:    bool.
-        Returns:
-            Path of the saved .pose file.
         """
         import maya.cmds as cmds  # deferred — so module loads without Maya
 
@@ -110,8 +99,8 @@ class PoseLibrary:
 
         # Non-fatal thumbnail capture
         try:
-            from anikin.AniPosePro.thumbnail import capture_viewport_thumbnail
-            capture_viewport_thumbnail(thumb_path, width=256, height=256)
+            from anikin.AniPosePro.core.thumbnail import capture_thumbnail
+            capture_thumbnail(thumb_path, width=256, height=256)
         except Exception:
             pass
 
@@ -120,11 +109,6 @@ class PoseLibrary:
     # ── OVERWRITE ─────────────────────────────────────────────────────────────
 
     def overwrite_pose(self, pose_path, nodes, **kwargs):
-        """
-        Update an existing pose file in-place.
-        Archives the current version to .versions/ before writing.
-        kwargs are passed straight through to save_pose().
-        """
         folder = os.path.dirname(pose_path)
         versions_dir = os.path.join(folder, VERSIONS_DIR)
         os.makedirs(versions_dir, exist_ok=True)
@@ -133,7 +117,6 @@ class PoseLibrary:
         base = os.path.splitext(os.path.basename(pose_path))[0]
         shutil.copy2(pose_path, os.path.join(versions_dir, "{}_{}{}".format(base, ts, POSE_EXT)))
 
-        # Preserve existing meta if caller doesn't supply replacements
         existing_meta_path = pose_path.replace(POSE_EXT, META_EXT)
         if os.path.exists(existing_meta_path):
             existing_meta = _read_json(existing_meta_path)
@@ -149,7 +132,6 @@ class PoseLibrary:
     # ── LOAD ──────────────────────────────────────────────────────────────────
 
     def load_pose_data(self, pose_path):
-        """Returns (pose_dict, meta_dict) tuple."""
         pose = _read_json(pose_path)
         meta_path = pose_path.replace(POSE_EXT, META_EXT)
         meta = _read_json(meta_path) if os.path.exists(meta_path) else {}
@@ -159,17 +141,10 @@ class PoseLibrary:
 
     def list_poses(self, folder="", search=None, tags=None,
                    sort_by="name", favourites_first=False):
-        """
-        Walk the library root (or a subfolder) and return pose entries.
-
-        Returns:
-            list of dicts: {path, name, thumb, meta}
-        """
         scan_root = os.path.join(self.root, folder) if folder else self.root
         results = []
 
         for dirpath, dirnames, files in os.walk(scan_root):
-            # Skip hidden/versions folders
             dirnames[:] = [d for d in dirnames
                            if not d.startswith(".") and d != VERSIONS_DIR]
             for fname in files:
@@ -181,7 +156,6 @@ class PoseLibrary:
 
                 meta = _read_json(meta_path) if os.path.exists(meta_path) else {}
 
-                # Filters
                 if search and search.lower() not in meta.get("name", fname).lower():
                     continue
                 if tags and not any(t in meta.get("tags", []) for t in tags):
@@ -194,7 +168,6 @@ class PoseLibrary:
                     "meta":  meta,
                 })
 
-        # Sorting
         if favourites_first:
             results.sort(key=lambda e: (not e["meta"].get("favourite", False),))
         if sort_by == "name":
@@ -207,22 +180,30 @@ class PoseLibrary:
         return results
 
     def list_clips(self, folder=""):
-        """Return .animclip entries from the library."""
         scan_root = os.path.join(self.root, folder) if folder else self.root
         results = []
         for dirpath, dirnames, files in os.walk(scan_root):
             dirnames[:] = [d for d in dirnames if not d.startswith(".")]
             for fname in files:
-                if not fname.endswith(ANIMCLIP_EXT):
+                if not fname.endswith(ANIMCLIP_EXT) and not fname.endswith(".clip"):
                     continue
                 clip_path = os.path.join(dirpath, fname)
-                meta_path = clip_path.replace(ANIMCLIP_EXT, META_EXT)
+                meta_path = clip_path.rsplit(".", 1)[0] + META_EXT
                 meta = _read_json(meta_path) if os.path.exists(meta_path) else {}
-                results.append({"path": clip_path, "name": meta.get("name", fname), "meta": meta})
+                
+                thumb_path = clip_path.rsplit(".", 1)[0] + ".gif"
+                if not os.path.exists(thumb_path):
+                    thumb_path = clip_path.rsplit(".", 1)[0] + ".jpg"
+                    
+                results.append({
+                    "path": clip_path, 
+                    "name": meta.get("name", fname), 
+                    "thumb": thumb_path if os.path.exists(thumb_path) else None,
+                    "meta": meta
+                })
         return results
 
     def list_folders(self):
-        """Returns a flat list of relative subfolder paths."""
         folders = []
         for dirpath, dirnames, _ in os.walk(self.root):
             dirnames[:] = [d for d in dirnames
@@ -242,10 +223,6 @@ class PoseLibrary:
     # ── DELETE ────────────────────────────────────────────────────────────────
 
     def delete_pose(self, pose_path, archive=True):
-        """
-        Soft-delete (archive to .versions/) or hard-delete a pose.
-        Always archives the .meta.json and .thumb.jpg as well.
-        """
         folder = os.path.dirname(pose_path)
         versions_dir = os.path.join(folder, VERSIONS_DIR)
         ts = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
@@ -267,7 +244,6 @@ class PoseLibrary:
     # ── META HELPERS ──────────────────────────────────────────────────────────
 
     def update_meta(self, pose_path, **fields):
-        """Patch specific fields in the .meta.json without touching the .pose."""
         meta_path = pose_path.replace(POSE_EXT, META_EXT)
         meta = _read_json(meta_path) if os.path.exists(meta_path) else {}
         meta.update(fields)
@@ -280,7 +256,6 @@ class PoseLibrary:
         self.update_meta(pose_path, rating=max(0, min(5, int(stars))))
 
     def rename_pose(self, pose_path, new_name):
-        """Rename both the files on disk and the 'name' field in meta."""
         folder = os.path.dirname(pose_path)
         safe = _safe_filename(new_name)
         new_base = os.path.join(folder, safe)
@@ -291,8 +266,6 @@ class PoseLibrary:
         self.update_meta(new_base + POSE_EXT, name=new_name)
         return new_base + POSE_EXT
 
-
-# ── Private helpers ────────────────────────────────────────────────────────────
 
 def _safe_filename(name):
     return re.sub(r"[^\w\-]", "_", name).lower()
@@ -318,16 +291,11 @@ def _write_json(path, data):
         json.dump(data, f, indent=2)
 
 def _write_json_atomic(path, data):
-    """Write JSON to a temp file then os.replace for atomic write."""
     tmp = path + ".tmp"
     _write_json(tmp, data)
     os.replace(tmp, path)
 
 def _capture_values(nodes, cmds, is_additive=False, delta_source=None):
-    """
-    Capture all keyable attribute values from `nodes`.
-    Returns (controls_dict, namespace_str).
-    """
     controls = {}
     namespace = ""
 
@@ -350,7 +318,6 @@ def _capture_values(nodes, cmds, is_additive=False, delta_source=None):
                     continue
                 val = cmds.getAttr(full)
                 if isinstance(val, list):
-                    # compound attrs return lists — skip them
                     continue
                 if is_additive and delta_source:
                     base = (delta_source.get(ctrl_key) or {}).get(attr, 0.0)

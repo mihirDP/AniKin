@@ -298,3 +298,18 @@ def _feedback(applied, skipped):
         amg="<hl>AniPose Pro</hl>: Applied {} channel(s)".format(applied),
         pos="topCenter", fade=True, fadeStayTime=1200
     )
+
+
+def apply_pose_sequence(poses_data_list, nodes, start_frame, interval):
+    """F-NEW-02: Apply multiple poses sequentially at intervals."""
+    cmds.undoInfo(openChunk=True, chunkName="AniKin_PoseSequence")
+    try:
+        for i, pose_data in enumerate(poses_data_list):
+            frame = start_frame + i * interval
+            cmds.currentTime(frame)
+            # Apply as keyframe with step tangent
+            apply_pose_full(pose_data, nodes, as_keyframe=True, key_tangent="step")
+            
+        cmds.inViewMessage(amg=f"<hl>AniPose Pro</hl>: Sequenced {len(poses_data_list)} poses.", pos="topCenter", fade=True, fadeStayTime=1200)
+    finally:
+        cmds.undoInfo(closeChunk=True)
